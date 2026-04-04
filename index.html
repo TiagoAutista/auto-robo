@@ -14,6 +14,7 @@
       --warning: #d29922;
       --danger: #f85149;
       --border: #30363d;
+      --input-bg: #252525;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
     body {
@@ -117,6 +118,57 @@
       opacity: 0.6;
       margin-right: 8px;
     }
+    /* Novos estilos para o menu de tarefas */
+    .task-select {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 12px;
+      background: var(--input-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    .task-select:focus {
+      outline: 2px solid var(--primary);
+      border-color: var(--primary);
+    }
+    .param-fields {
+      display: none;
+      margin-bottom: 15px;
+      animation: slideDown 0.2s ease;
+    }
+    .param-fields.visible {
+      display: block;
+    }
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .param-input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 8px;
+      background: var(--input-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 0.95rem;
+    }
+    .param-input:focus {
+      outline: 2px solid var(--primary);
+      border-color: var(--primary);
+    }
+    .param-input::placeholder {
+      opacity: 0.5;
+    }
+    .task-hint {
+      font-size: 0.8rem;
+      opacity: 0.7;
+      margin-top: 4px;
+      padding-left: 4px;
+    }
     @media (max-width: 600px) {
       .mode-buttons { grid-template-columns: 1fr; }
     }
@@ -129,9 +181,35 @@
   </header>
 
   <div class="container">
-    <!-- Controle -->
+    
+    <!-- 🎯 Menu de Tarefas (NOVO) -->
     <div class="card">
-      <h2>🎛️ Modo de Execução</h2>
+      <h2>🎯 Selecione o Processo</h2>
+      
+      <select id="taskSelect" class="task-select">
+        <option value="FULL">🤖 Automação Completa (GOI + WFM + Injeção D0)</option>
+        <option value="GOI_CHECK">🔍 Verificar Ordem/Status de Injeção (GOI)</option>
+        <option value="WFM_CPF">👤 Buscar e Abrir CPF de Cliente (WFM)</option>
+        <option value="GPS_OPEN">🌐 Abrir Sistema GPS (Geoprocessamento)</option>
+      </select>
+
+      <!-- Campos dinâmicos que aparecem conforme a tarefa -->
+      <div id="paramFields" class="param-fields">
+        
+        <!-- Campo CPF para WFM -->
+        <div id="cpfField" style="display:none;">
+          <input type="text" id="inputCPF" class="param-input" placeholder="CPF (ex: 123.456.789-00)" maxlength="14">
+          <div class="task-hint">💡 Digite apenas números ou use máscara: 000.000.000-00</div>
+        </div>
+
+        <!-- Campo Ordem para GOI -->
+        <div id="orderField" style="display:none;">
+          <input type="text" id="inputOrder" class="param-input" placeholder="Número da Ordem ou ID">
+          <div class="task-hint">💡 Ex: ORD-123456 ou apenas 123456</div>
+        </div>
+
+      </div>
+
       <div class="mode-buttons">
         <button id="btnDev" class="btn-dev" onclick="startRobot('DEV')">
           🧪 Modo Desenvolvimento<br><small>(Mock Local)</small>
@@ -140,6 +218,7 @@
           🏢 Modo Produção<br><small>(Rede Corporativa)</small>
         </button>
       </div>
+      
       <div class="status-bar">
         <span class="status-dot idle" id="statusDot"></span>
         <span id="statusText">Aguardando comando...</span>
@@ -160,6 +239,7 @@
       <h2>📝 Logs em Tempo Real</h2>
       <div id="logs" class="logs"></div>
     </div>
+
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -170,6 +250,51 @@
     const statusText = document.getElementById('statusText');
     const diagnosticResult = document.getElementById('diagnosticResult');
 
+    // Elementos do menu de tarefas
+    const taskSelect = document.getElementById('taskSelect');
+    const paramFields = document.getElementById('paramFields');
+    const cpfField = document.getElementById('cpfField');
+    const orderField = document.getElementById('orderField');
+    const inputCPF = document.getElementById('inputCPF');
+    const inputOrder = document.getElementById('inputOrder');
+
+    // Máscara de CPF em tempo real
+    inputCPF.addEventListener('input', (e) => {
+      let value = e.target.value.replace(/\D/g, '');
+      if (value.length > 3 && value.length <= 6) {
+        value = value.replace(/(\d{3})(\d)/, '$1.$2');
+      } else if (value.length > 6 && value.length <= 9) {
+        value = value.replace(/(\d{3})(\d{3})(\d)/, '$1.$2.$3');
+      } else if (value.length > 9) {
+        value = value.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, '$1.$2.$3-$4');
+      }
+      e.target.value = value;
+    });
+
+    // Mostra/esconde campos conforme a tarefa selecionada
+    taskSelect.addEventListener('change', () => {
+      const task = taskSelect.value;
+      
+      // Reset dos campos
+      paramFields.classList.remove('visible');
+      cpfField.style.display = 'none';
+      orderField.style.display = 'none';
+      inputCPF.value = '';
+      inputOrder.value = '';
+
+      // Lógica de exibição
+      if (task === 'WFM_CPF') {
+        paramFields.classList.add('visible');
+        cpfField.style.display = 'block';
+        inputCPF.focus();
+      } else if (task === 'GOI_CHECK') {
+        paramFields.classList.add('visible');
+        orderField.style.display = 'block';
+        inputOrder.focus();
+      }
+    });
+
+    // Socket: recebe logs do servidor
     socket.on('log', (data) => {
       const time = new Date().toLocaleTimeString();
       const line = document.createElement('div');
@@ -179,6 +304,7 @@
       logsEl.scrollTop = logsEl.scrollHeight;
     });
 
+    // Socket: atualiza status do robô
     socket.on('status', (data) => {
       if (data.running) {
         statusDot.className = 'status-dot running';
@@ -191,14 +317,50 @@
       document.getElementById('btnProd').disabled = data.running;
     });
 
+    // Função principal: inicia o robô com tarefa + parâmetros
     function startRobot(mode) {
-      socket.emit('start-robot', { mode });
-      addLocalLog(`Iniciando modo: ${mode}`, 'info');
+      const task = taskSelect.value;
+      const params = {};
+
+      // Coleta parâmetros conforme a tarefa
+      if (task === 'WFM_CPF') {
+        const cpfRaw = inputCPF.value.trim();
+        const cpf = cpfRaw.replace(/\D/g, ''); // Remove máscara para envio
+        if (!cpf || cpf.length !== 11) {
+          addLocalLog('⚠ CPF inválido! Digite 11 dígitos.', 'warn');
+          inputCPF.focus();
+          return;
+        }
+        params.cpf = cpf;
+      }
+      
+      if (task === 'GOI_CHECK') {
+        const order = inputOrder.value.trim();
+        if (!order) {
+          addLocalLog('⚠ Preencha o Número da Ordem!', 'warn');
+          inputOrder.focus();
+          return;
+        }
+        params.order = order;
+      }
+
+      // Envia para o servidor
+      socket.emit('start-robot', { mode, task, params });
+      addLocalLog(`🚀 Tarefa: ${task} | Modo: ${mode}`, 'info');
+      
+      // Feedback visual imediato
+      if (task === 'WFM_CPF') {
+        addLocalLog(`📋 Buscando CPF: ${params.cpf}`, 'info');
+      } else if (task === 'GOI_CHECK') {
+        addLocalLog(`📋 Verificando ordem: ${params.order}`, 'info');
+      }
     }
 
+    // Diagnóstico de rede
     function runDiagnostics() {
-      addLocalLog('Iniciando diagnóstico de rede...', 'info');
+      addLocalLog('🔍 Iniciando diagnóstico de rede...', 'info');
       diagnosticResult.innerHTML = '<em>Analisando...</em>';
+      
       fetch('/api/diagnose')
         .then(res => res.json())
         .then(data => {
@@ -220,6 +382,7 @@
         });
     }
 
+    // Log local (feedback imediato antes do socket)
     function addLocalLog(msg, level) {
       const time = new Date().toLocaleTimeString();
       const line = document.createElement('div');
@@ -228,6 +391,18 @@
       logsEl.appendChild(line);
       logsEl.scrollTop = logsEl.scrollHeight;
     }
+
+    // Atalhos de teclado
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '1') startRobot('DEV');
+      if (e.key === '2') startRobot('PROD');
+      if (e.key === 'd' || e.key === 'D') runDiagnostics();
+    });
+
+    // Foco inicial no campo correto ao carregar
+    window.addEventListener('load', () => {
+      taskSelect.dispatchEvent(new Event('change'));
+    });
   </script>
 </body>
 </html>
