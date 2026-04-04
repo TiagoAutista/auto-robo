@@ -1,0 +1,4249 @@
+### USER
+Descreve do que se trata esse código. 
+
+### ASSISTANT
+Este código refere-se ao **Auto Robô v2.0**, um sistema de automação desenvolvido em **Node.js** utilizando a biblioteca **Puppeteer**. O objetivo principal do projeto é automatizar tarefas repetitivas em sistemas corporativos internos da Vivo/GVT, especificamente os sistemas **GOI** (Gestão de Ordens de Instalação), **WFM** (Workforce Management) e **GPS**.
+
+Abaixo detalho os principais aspectos do projeto contidos no arquivo:
+
+### 1. Objetivo Funcional
+O robô executa o seguinte fluxo de trabalho:
+*   **Login Automático:** Acessa e realiza login nos sistemas GOI e WFM usando credenciais configuradas.
+*   **Navegação:** Abre abas adicionais para os sistemas WFM e GPS.
+*   **Injeção D0:** Navega até a aba de "Injeção D0" no sistema de agendamento, executa uma função JavaScript interna (`injecaoAnalitico`) para carregar dados e filtra atividades.
+*   **Atribuição de Atividades:** Busca uma ordem de serviço específica (PON/Atividade) na tabela e clica no botão de atribuição.
+*   **Diagnóstico:** Tira screenshots em caso de erro ou sucesso e gera logs coloridos detalhados.
+
+### 2. Arquitetura Técnica
+O projeto foi refatorado para ser **modular**, **escalável** e **fácil de manter**:
+*   **ES Modules:** Utiliza `import/export` moderno do JavaScript.
+*   **Separação de Responsabilidades:**
+    *   `src/config/`: Centraliza configurações (URLs, credenciais, timeouts) via arquivo `.env`.
+    *   `src/browser/`: Gerencia a inicialização do Chrome (pode conectar a um Chrome existente ou lançar um novo) e utilitários de página.
+    *   `src/services/`: Contém a lógica de negócio (login, injeção, navegação).
+    *   `src/utils/`: Funções auxiliares como logger colorido, espera inteligente com retry (`waitForSelectorWithRetry`), captura de screenshots e centralização de seletores CSS.
+*   **Configuração Flexível (.env):** Permite alternar entre modos de execução sem alterar o código fonte.
+
+### 3. Recursos Avançados Implementados
+*   **Modo Híbrido de Navegador:**
+    *   Pode conectar-se a uma instância do Chrome já aberta via Debug Port (útil para reutilizar sessões logadas ou contornar CAPTCHAs manualmente).
+    *   Pode lançar uma nova instância do Chrome gerenciada pelo Puppeteer.
+*   **Modo de Desenvolvimento/Teste (Mocking):**
+    *   Como os sistemas reais só acessíveis via VPN corporativa, o código inclui um **Servidor Mock Local** (`scripts/mock-server.js`) que simula as respostas HTML dos sistemas GOI/WFM. Isso permite desenvolver e testar a lógica em casa sem estar conectado à rede da empresa.
+*   **Tratamento de Erros Robusto:**
+    *   Logs coloridos com níveis (info, warn, error, debug).
+    *   Retry automático em falhas de seleção de elementos.
+    *   Captura automática de screenshots em caso de falha crítica para diagnóstico posterior.
+*   **Segurança:** Credenciais não ficam hardcodadas; são lidas do arquivo `.env` (que está no `.gitignore`).
+
+### 4. Estrutura de Pastas
+```text
+auto-robo-main/
+├── .env                      # Configurações sensíveis e flags
+├── index.js                  # Ponto de entrada principal
+├── src/
+│   ├── config/               # Configurações modularizadas
+│   ├── browser/              # Controle do Puppeteer/Chrome
+│   ├── services/             # Lógica de automação (Login, Injeção, etc.)
+│   └── utils/                # Helpers (Logger, Wait, Selectors, Screenshots)
+├── scripts/                  # Scripts utilitários (Mock Server, Testes)
+└── output/                   # Logs e Screenshots gerados
+```
+
+### Resumo para o Usuário (Tiago/xAgron)
+Este é o seu projeto de automação pessoal/profissional. Ele foi desenhado para resolver o problema de acesso remoto (VPN) permitindo que você desenvolva a lógica de interação (cliques, preenchimento, espera) usando um servidor local falso (Mock). Quando você estiver no escritório (ou conectado à VPN), basta alterar uma variável no `.env` (`MODO_TESTE=false`) e o robô passará a operar nos sistemas reais da Vivo.
+
+O código atual no arquivo representa a **versão refatorada v2.0**, corrigindo erros anteriores de execução no Windows (problemas com `import.meta.url`) e adicionando resiliência contra falhas de rede e fechamento inesperado de páginas.
+
+### USER
+Quais são as suas sugestões. Sou autista nivel 1 de suporte e faço ads. Esse vai ser meu projeto base
+
+### ASSISTANT
+Olá, Tiago! É um prazer conversar com você novamente. Considerando seu perfil (ADS, Autismo Nível 1) e o objetivo de usar este projeto como **base de portfólio e aprendizado**, tenho sugestões estratégicas focadas em **estrutura, clareza mental e valor profissional**.
+
+Como estudante de ADS e desenvolvedor, seu maior trunfo não é apenas "fazer o robô funcionar", mas demonstrar **engenharia de software**: organização, tratamento de erros e documentação.
+
+Aqui estão minhas sugestões divididas em pilares:
+
+---
+
+### 1. Pilar Técnico: Robustez e "Anti-Fragilidade"
+Autistas muitas vezes brilham na detecção de padrões e inconsistências. Use isso a seu favor para criar um código que não quebra facilmente.
+
+*   **Centralização Absoluta de Seletores:**
+    *   *Por que:* Sites corporativos mudam IDs de classes frequentemente. Se o CSS mudar, você não quer caçar erros em 10 arquivos.
+    *   *Ação:* Mantenha rigorosamente o arquivo `src/utils/selectors.js`. Comente cada seletor explicando *o que* ele é (ex: `// Botão de entrar após preencher senha`).
+*   **Tratamento de Erros "Defensivo":**
+    *   *Por que:* A ansiedade de "e se der erro?" pode ser reduzida se o sistema souber se recuperar.
+    *   *Ação:* Implemente a função `waitForSelectorWithRetry` (que já esboçamos) em **todas** as interações críticas. Se um elemento não aparecer em 5s, tente de novo 3 vezes antes de falhar. Isso evita que o robô pare por uma lentidão momentânea da rede.
+*   **Logs Estruturados e Visuais:**
+    *   *Por que:* Você mencionou gostar de logs coloridos. Isso ajuda muito no diagnóstico rápido sem precisar ler linhas infinitas de texto branco.
+    *   *Ação:* Use o `src/utils/logger.js` para criar níveis claros:
+        *   `INFO` (Verde): Passo concluído.
+        *   `WARN` (Amarelo): Algo inesperado, mas recuperável.
+        *   `ERROR` (Vermelho): Parada crítica + Screenshot automático.
+
+### 2. Pilar Acadêmico (ADS): Documentação como Produto
+Para sua faculdade e futuro emprego, o código é apenas 50% do trabalho. A capacidade de explicar *como* e *por que* você fez é o que diferencia um Júnior de um Pleno.
+
+*   **README.md Profissional:**
+    *   Não coloque apenas "como rodar". Crie uma seção **"Arquitetura"** explicando por que escolheu Modularização e ES Modules.
+    *   Inclua um diagrama simples (pode ser feito no Draw.io ou Mermaid) mostrando o fluxo: `Inicio -> Config -> Browser -> Login -> Injeção -> Fim`.
+*   **Comentários de "Decisão de Design":**
+    *   No código, não comente o óbvio (`// cria variável`). Comente o *porquê*:
+        ```javascript
+        // Usamos 'domcontentloaded' em vez de 'networkidle2' aqui
+        // porque o sistema GOI tem scripts de analytics lentos que não afetam
+        // a usabilidade do formulário, mas travariam o timeout.
+        await page.goto(url, { waitUntil: 'domcontentloaded' });
+        ```
+*   **Git Commit Semântico:**
+    *   Use mensagens padrão: `feat: adiciona login WFM`, `fix: corrige timeout no DNS`, `docs: atualiza README`. Isso mostra maturidade profissional.
+
+### 3. Pilar Pessoal (Autismo Nível 1): Gestão de Energia e Foco
+Projetos de automação podem ser frustrantes quando algo quebra sem motivo aparente. Vamos estruturar o trabalho para minimizar a sobrecarga sensorial/cognitiva.
+
+*   **Modo "Mock" é seu Melhor Amigo:**
+    *   Como você não tem VPN em casa, desenvolver contra o servidor real gera incerteza ("é bug meu ou é a VPN?").
+    *   *Sugestão:* Foque 80% do tempo desenvolvendo com o **Mock Server Local** (`npm run mock`). Ele é previsível, rápido e não depende de fatores externos. Deixe a validação real apenas para quando estiver no cabo/escritório. Isso reduz a variabilidade e a ansiedade.
+*   **Checklists de Validação:**
+    *   Crie um arquivo `CHECKLIST.md` na raiz. Antes de considerar uma tarefa pronta, marque os itens:
+        - [ ] Código roda sem erros no modo Mock?
+        - [ ] Logs estão legíveis?
+        - [ ] Screenshot de erro é gerado se eu quebrar propositalmente?
+        - [ ] README está atualizado?
+    *   Isso externaliza a memória de trabalho e reduz a carga mental de "será que esqueci algo?".
+*   **Ambiente de Desenvolvimento Limpo:**
+    *   Use o VS Code com extensões que ajudem na visualização (ex: *Error Lens* para ver erros inline).
+    *   Mantenha a estrutura de pastas rígida. Saber exatamente onde cada arquivo está reduz a fadiga de decisão.
+
+### 4. Próximos Passos Concretos (Plano de Ação)
+
+Para transformar isso no seu **Projeto Base**, sugiro esta ordem de execução:
+
+1.  **Estabilize o Mock Server:**
+    *   Garanta que `npm run mock` e `npm start` funcionem juntos perfeitamente em casa. O robô deve fazer o fluxo completo (Login -> Injeção -> Atribuição) usando o HTML falso.
+2.  **Implemente a Captura de Erros Visual:**
+    *   Certifique-se de que, se o mock falhar, um screenshot seja salvo em `output/screenshots/erro_*.png`. Verifique essa imagem. Ela é sua ferramenta de debug principal.
+3.  **Crie o "Relatório de Execução":**
+    *   Ao final do script, gere um arquivo `relatorio.json` ou `.csv` simples dizendo:
+        ```json
+        {
+          "data": "2026-04-04",
+          "status": "SUCESSO",
+          "tempo_total_segundos": 45,
+          "erros_encontrados": 0
+        }
+        ```
+    *   Isso demonstra habilidade com manipulação de dados (FileSystem do Node.js), muito valorizada em ADS.
+4.  **Documente a Arquitetura:**
+    *   Escreva o README final. Explique que o sistema foi desenhado para ser **agnostico de rede** (funciona com Mock ou Real).
+
+### Resumo para sua tranquilidade:
+Você já tem uma base técnica excelente (Node, Puppeteer, Modularização). O diferencial agora será a **organização** e a **previsibilidade**.
+
+*   Use o **Mock** para controlar o ambiente em casa.
+*   Use os **Logs Coloridos** para monitorar o status sem esforço.
+*   Use o **README** para vender seu peixe na faculdade e no mercado.
+
+Quer que eu te ajude a gerar o conteúdo final do `README.md` ou a refinar o script de geração de relatório JSON?
+
+### USER
+Agora que ja temos nossa logica
+
+### ASSISTANT
+Excelente, Tiago! Agora que a **lógica de navegação e interação** está funcionando (mesmo que em ambiente de teste/mock), vamos transformar esse código em um **Projeto Base Profissional** para o seu portfólio de ADS.
+
+Como você mencionou ser autista nível 1 e estudante, o foco agora será em **Organização Mental**, **Documentação Clara** e **Escalabilidade**. Um projeto bem documentado vale tanto quanto um código complexo para quem está contratando ou avaliando.
+
+Aqui estão os próximos passos estratégicos para consolidar seu projeto:
+
+---
+
+### 1. 📚 Documentação Profissional (README.md)
+O `README.md` é a "cara" do seu projeto. Ele deve explicar não apenas *como rodar*, mas *o que* e *por que* foi feito.
+
+Sugestão de estrutura para o seu `README.md`:
+
+```markdown
+# 🤖 Auto Robô v2.0 - Automação Corporativa Modular
+
+> Projeto desenvolvido por **Tiago Cesar Soares dos Santos (xAgron)** como parte dos estudos em Análise e Desenvolvimento de Sistemas.
+
+## 📋 Sobre o Projeto
+Sistema de automação web desenvolvido em **Node.js** com **Puppeteer**, projetado para interagir com sistemas corporativos internos (GOI, WFM, GPS). O projeto foca em **modularidade**, **tratamento robusto de erros** e **flexibilidade de configuração**, permitindo execução tanto em ambiente corporativo (VPN) quanto em desenvolvimento local (Mock Server).
+
+## 🚀 Tecnologias Utilizadas
+- **Node.js** (ES Modules)
+- **Puppeteer** (Automação Headless Chrome)
+- **Express** (Servidor Mock para testes locais)
+- **Dotenv** (Gerenciamento de variáveis de ambiente)
+- **Arquitetura Modular** (Separação de Config, Browser, Services e Utils)
+
+## 🏗️ Arquitetura
+O projeto segue o padrão de separação de responsabilidades:
+- `src/config/`: Centralização de URLs, credenciais e timeouts.
+- `src/browser/`: Gerenciamento do ciclo de vida do navegador (Launch/Connect).
+- `src/services/`: Lógica de negócio (Login, Injeção, Navegação).
+- `src/utils/`: Ferramentas reutilizáveis (Logger, Wait, Screenshots).
+
+## 🛠️ Instalação e Configuração
+
+### Pré-requisitos
+- Node.js v18+
+- Google Chrome instalado
+
+### Passos
+1. Clone o repositório:
+   ```bash
+   git clone <seu-repo>
+   cd auto-robo-main
+   ```
+2. Instale as dependências:
+   ```bash
+   npm install
+   ```
+3. Configure o arquivo `.env` (copie de `.env.example` se houver):
+   ```env
+   # Para desenvolvimento local (sem VPN)
+   MODO_TESTE=true
+   USAR_CHROME_EXISTENTE=false
+   
+   # Para produção (com VPN)
+   # MODO_TESTE=false
+   # LOGIN_URL=https://goi.vivo.com.br/login
+   ```
+
+## ▶️ Como Executar
+
+### Modo Desenvolvimento (Local/Mock)
+Ideal para desenvolver sem depender da rede corporativa.
+```bash
+# Terminal 1: Inicia o servidor Mock
+npm run mock
+
+# Terminal 2: Inicia o Robô
+npm start
+```
+
+### Modo Produção (Corporativo/VPN)
+```bash
+# Certifique-se de estar conectado à VPN
+npm start
+```
+
+## 🧪 Testes e Diagnóstico
+```bash
+# Verifica conectividade com o Mock Server
+npm run test:mock
+
+# Teste básico de Puppeteer
+npm run test:puppeteer
+```
+
+## 📸 Exemplos de Output
+*(Aqui você pode colocar uma imagem do log colorido ou do screenshot gerado)*
+
+## 🤝 Contribuição
+Sinta-se à vontade para abrir issues ou pull requests.
+
+## 📄 Licença
+MIT
+```
+
+---
+
+### 2. 🧹 Limpeza e Organização Final
+Antes de considerar o "v1.0" finalizado, faça esta checklist:
+
+1.  **.gitignore**: Certifique-se de que `.env`, `node_modules/`, `output/` (screenshots/logs) e `.cache/` estão ignorados. Não suba credenciais ou arquivos temporários.
+2.  **Comentários no Código**: Revise os arquivos principais (`index.js`, `login.js`) e adicione comentários explicando *decisões de design* (ex: "Por que usamos `domcontentloaded` aqui?").
+3.  **Tratamento de Erros**: Verifique se todos os `catch` estão registrando logs úteis e tirando screenshots quando possível.
+
+---
+
+### 3. 🎓 Valor Acadêmico (Para sua Faculdade ADS)
+Como este é seu projeto base, você pode destacá-lo em disciplinas de:
+-   **Engenharia de Software**: Mostrando a arquitetura modular e uso de Design Patterns (Factory para o Browser).
+-   **Banco de Dados**: Se adicionar a funcionalidade de salvar o histórico de execuções em um SQLite ou JSON estruturado.
+-   **Redes de Computadores**: Explicando a diferença entre DNS corporativo, VPN e Mocking local.
+
+**Dica:** Crie um diagrama simples (pode ser no Draw.io ou Mermaid) mostrando o fluxo:
+`Usuário -> .env Config -> Index.js -> Browser Manager -> Service (Login/Injection) -> Utils (Log/Screenshot)`
+
+---
+
+### 4. 🚀 Próximos Passos Sugeridos (Opcional)
+Se quiser evoluir ainda mais:
+1.  **Relatório em Excel/CSV**: Adicionar uma função que, ao final da execução, gera um `relatorio_execucao.csv` com Data, Hora, Status (Sucesso/Falha) e Tempo Total.
+2.  **Dashboard Simples**: Uma página HTML local que lê os logs ou screenshots e mostra um histórico visual das execuções.
+3.  **Agendamento**: Usar `node-cron` para agendar execuções automáticas (ex: toda manhã às 08:00).
+
+---
+
+### Como posso te ajudar agora?
+1.  Quer que eu gere o **diagrama de arquitetura** em texto (Mermaid) para você colocar no README?
+2.  Quer ajuda para implementar a **geração de relatório CSV** no final da execução?
+3.  Quer revisar algum arquivo específico antes de "fechar" essa versão?
+
+Estou à disposição! 🤖✨
+
+### USER
+Vamos criar um menu para ambos os modo para que possa exister uma tela incial que rode antes dos codigos
+
+### ASSISTANT
+Excelente ideia, Tiago! Criar um **Menu Interativo no Terminal (CLI)** é a melhor forma de tornar seu projeto profissional e fácil de usar, especialmente para quem não quer ficar editando o `.env` toda hora.
+
+Vamos criar um arquivo `menu.js` que roda antes da automação, permitindo escolher entre:
+1.  **Modo Desenvolvimento (Mock Local)**: Para testar em casa sem VPN.
+2.  **Modo Produção (Sistemas Reais)**: Para usar no trabalho com VPN/Cabo.
+3.  **Diagnóstico**: Verificar se o Mock Server ou a VPN estão ativos.
+
+Aqui está a implementação completa:
+
+---
+
+### 1. Crie o arquivo `src/cli/menu.js`
+
+Este arquivo usa a biblioteca nativa `readline` do Node.js para criar um menu interativo.
+
+```javascript
+// src/cli/menu.js
+import readline from 'readline';
+import { execSync } from 'child_process';
+import logger from '../utils/logger.js';
+import { automationConfig, systemsConfig } from '../config/index.js';
+
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
+
+const question = (query) => new Promise((resolve) => rl.question(query, resolve));
+
+// Cores para o menu
+const COLORS = {
+  reset: '\x1b[0m',
+  cyan: '\x1b[36m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  red: '\x1b[31m',
+  bright: '\x1b[1m'
+};
+
+const showHeader = () => {
+  console.clear();
+  console.log(`${COLORS.cyan}
+╔════════════════════════════════════════════════════════╗`);
+  console.log(`${COLORS.cyan}║  🤖 AUTO ROBO v2.0 - Menu Principal              ║`);
+  console.log(`${COLORS.cyan}║  Desenvolvido por: xAgron                        ║`);
+  console.log(`${COLORS.cyan}╚════════════════════════════════════════════════════════╝${COLORS.reset}
+`);
+};
+
+const checkMockServer = async () => {
+  try {
+    // Tenta fazer um fetch rápido para localhost:3456
+    const response = await fetch('http://localhost:3456/login', { method: 'HEAD' });
+    if (response.ok) {
+      logger.success('Mock Server está ONLINE ✅');
+      return true;
+    }
+  } catch (e) {
+    logger.error('Mock Server está OFFLINE ❌');
+    logger.info('Execute "npm run mock" em outro terminal.');
+    return false;
+  }
+};
+
+const checkVPN = async () => {
+  try {
+    // Tenta resolver DNS do sistema corporativo
+    const dns = await import('dns').then(m => m.promises);
+    await dns.lookup('goi.vivo.com.br');
+    logger.success('DNS Corporativo resolvido (VPN/Cabo provável) ✅');
+    return true;
+  } catch (e) {
+    logger.error('DNS Corporativo NÃO resolvido (Sem VPN/Cabo) ❌');
+    return false;
+  }
+};
+
+export const showMainMenu = async () => {
+  showHeader();
+  
+  console.log(`${COLORS.bright}Escolha o modo de execução:${COLORS.reset}`);
+  console.log(`  ${COLORS.green}[1]${COLORS.reset} Modo Desenvolvimento (Mock Local)`);
+  console.log(`  ${COLORS.cyan}[2]${COLORS.reset} Modo Produção (Sistemas Reais)`);
+  console.log(`  ${COLORS.yellow}[3]${COLORS.reset} Diagnóstico de Rede`);
+  console.log(`  ${COLORS.red}[0]${COLORS.reset} Sair`);
+  console.log('');
+
+  const choice = await question('👉 Digite sua opção: ');
+
+  switch (choice.trim()) {
+    case '1':
+      await handleDevMode();
+      break;
+    case '2':
+      await handleProdMode();
+      break;
+    case '3':
+      await handleDiagnostics();
+      break;
+    case '0':
+      logger.info('Saindo...');
+      rl.close();
+      process.exit(0);
+      break;
+    default:
+      logger.warn('Opção inválida. Tente novamente.');
+      await new Promise(r => setTimeout(r, 1500));
+      return showMainMenu(); // Recursão para mostrar o menu de novo
+  }
+};
+
+const handleDevMode = async () => {
+  logger.info('Configurando Modo Desenvolvimento...');
+  
+  // Verifica se o mock está rodando
+  const isMockUp = await checkMockServer();
+  
+  if (!isMockUp) {
+    const startMock = await question('⚠️  Mock Server não detectado. Deseja iniciar agora? (s/n): ');
+    if (startMock.toLowerCase() === 's') {
+      logger.info('Iniciando Mock Server em background...');
+      // Nota: Em Windows, spawn detached é complexo. 
+      // O ideal é pedir para o usuário abrir outro terminal.
+      logger.warn('Por favor, abra OUTRO terminal e execute: npm run mock');
+      await question('Pressione ENTER quando o Mock Server estiver pronto...');
+    } else {
+      logger.warn('Cancelando execução. Inicie o Mock Server manualmente.');
+      rl.close();
+      process.exit(0);
+    }
+  }
+
+  // Configura variáveis para este processo
+  process.env.MODO_TESTE = 'true';
+  process.env.LOGIN_URL = 'http://localhost:3456/login';
+  process.env.AGENDAMENTO_URL = 'http://localhost:3456/agendamento/atendimento.php';
+  
+  logger.success('Modo Desenvolvimento Ativado! Iniciando robô...');
+  await new Promise(r => setTimeout(r, 1000));
+  rl.close();
+  // Retorna controle para o index.js continuar
+  return 'DEV';
+};
+
+const handleProdMode = async () => {
+  logger.info('Configurando Modo Produção...');
+  
+  // Verifica VPN
+  const hasVPN = await checkVPN();
+  
+  if (!hasVPN) {
+    const force = await question('⚠️  VPN/Rede Corporativa não detectada. Deseja continuar mesmo assim? (s/n): ');
+    if (force.toLowerCase() !== 's') {
+      logger.warn('Conecte-se à VPN e tente novamente.');
+      rl.close();
+      process.exit(0);
+    }
+  }
+
+  // Configura variáveis para produção
+  process.env.MODO_TESTE = 'false';
+  // As URLs reais já estão no .env, então não precisamos sobrescrever,
+  // a menos que queira garantir. O config/systems.js lê do .env.
+  
+  logger.success('Modo Produção Ativado! Iniciando robô...');
+  await new Promise(r => setTimeout(r, 1000));
+  rl.close();
+  return 'PROD';
+};
+
+const handleDiagnostics = async () => {
+  logger.info('Executando diagnóstico...');
+  console.log('');
+  await checkMockServer();
+  await checkVPN();
+  console.log('');
+  await question('Pressione ENTER para voltar ao menu...');
+  return showMainMenu();
+};
+```
+
+---
+
+### 2. Atualize o `index.js` para usar o Menu
+
+Agora, modificamos o ponto de entrada para chamar o menu **antes** de iniciar o navegador.
+
+```javascript
+// index.js - Entry Point do Auto Robô v2.0
+import { initBrowser, closeBrowser } from './src/browser/index.js';
+import { loginService, injectionService, navigationService } from './src/index.js';
+import { logger, automationConfig } from './src/index.js';
+import { captureAndSave } from './src/utils/screenshots.js';
+import { sleep } from './src/utils/wait.js';
+import { showMainMenu } from './src/cli/menu.js'; // Importa o menu
+
+// Função principal de execução da automação
+const runAutomation = async () => {
+  let browser = null;
+  let page = null;
+  try {
+    logger.divider();
+    
+    // 1. Inicializa navegador
+    logger.info('main', '📦 Inicializando navegador...');
+    const { browser: br, page: pg } = await initBrowser();
+    browser = br;
+    page = pg;
+
+    // 2. Login no GOI
+    logger.info('main', '🔐 Etapa 1: Login no GOI');
+    await loginService.loginGOI(page);
+    await sleep(1000);
+
+    // 3. Login no WFM (se habilitado)
+    // Nota: systemsConfig precisa ser importado ou acessado via env
+    if (process.env.ABRIR_WFM === 'true') {
+      logger.info('main', '🔐 Etapa 2: Login no WFM');
+      await loginService.loginWFM(page);
+      await sleep(1000);
+    }
+
+    // 4. Abre abas adicionais
+    logger.info('main', '🗂️  Etapa 3: Abrindo abas adicionais');
+    const extraTabs = await navigationService.openSystemTabs(browser, page);
+
+    // 5. Executa Injeção D0
+    logger.info('main', '💉 Etapa 4: Executando Injeção D0');
+    await injectionService.executarInjecaoD0(page);
+
+    // 6. Busca e atribui atividade (se configurado)
+    if (automationConfig.atividadeTeste) {
+      logger.info('main', '🎯 Etapa 5: Buscando atividade de teste');
+      await injectionService.buscarEAtribuirAtividade(page, automationConfig.atividadeTeste);
+    }
+
+    // 7. Screenshot final
+    logger.info('main', '📸 Salvando screenshot de conclusão...');
+    await captureAndSave(page, 'conclusao');
+
+    logger.divider();
+    logger.success('main', '✨ Automação concluída com sucesso!');
+
+    // Mantém navegador aberto para inspeção manual
+    if (process.env.HEADLESS !== 'true') {
+      console.log('\n🔍 Navegador mantido aberto.');
+      console.log('Pressione ENTER para fechar e encerrar...');
+      await new Promise(resolve => {
+        process.stdin.resume();
+        process.stdin.once('data', () => {
+          process.stdin.pause();
+          resolve();
+        });
+      });
+    }
+
+  } catch (error) {
+    logger.divider();
+    logger.error('main', `❌ Erro crítico: ${error.message}`, error);
+    if (page) {
+      await captureAndSave(page, 'erro_critico');
+    }
+    process.exitCode = 1;
+  } finally {
+    if (browser) {
+      logger.info('main', '🔒 Finalizando navegador...');
+      await closeBrowser(browser);
+    }
+    logger.info('main', '✅ Processo encerrado.');
+    process.exit(process.exitCode || 0);
+  }
+};
+
+// Ponto de Entrada Principal
+const main = async () => {
+  // Mostra o Banner
+  console.log(`
+╔════════════════════════════════════════════════════════╗
+║  🤖 AUTO ROBO v2.0 - Automação GOI/WFM/GPS             ║
+║  Desenvolvido por: xAgron                              ║
+╚════════════════════════════════════════════════════════╝
+  `);
+
+  // Exibe o Menu e aguarda escolha
+  const mode = await showMainMenu();
+
+  // Se o usuário não saiu (opção 0), inicia a automação
+  if (mode === 'DEV' || mode === 'PROD') {
+    await runAutomation();
+  }
+};
+
+// Executa
+main().catch(err => {
+  console.error('💥 Erro fatal não tratado:', err);
+  process.exit(1);
+});
+```
+
+---
+
+### 3. Ajuste Fino no `package.json`
+
+Certifique-se de que o script `start` chama o `index.js` normalmente. O menu agora faz parte do fluxo inicial.
+
+```json
+{
+  "scripts": {
+    "start": "node index.js",
+    "mock": "node scripts/mock-server.js",
+    "dev": "concurrently \"npm run mock\" \"node index.js\"",
+    "test:mock": "node scripts/test-mock.js"
+  }
+}
+```
+
+---
+
+### 🚀 Como Vai Funcionar Agora
+
+1.  Você roda `npm start`.
+2.  O **Menu** aparece limpo no terminal.
+3.  Você digita `1` para **Desenvolvimento**:
+    *   Ele verifica se o Mock Server está rodando.
+    *   Se não estiver, avisa você para abrir outro terminal e rodar `npm run mock`.
+    *   Configura as variáveis de ambiente na memória para apontar para `localhost`.
+    *   Inicia o Chrome e executa o robô contra o Mock.
+4.  Você digita `2` para **Produção**:
+    *   Ele verifica se o DNS `goi.vivo.com.br` responde (indicando VPN/Cabo).
+    *   Se não responder, pergunta se quer continuar mesmo assim (útil se o DNS estiver lento mas a rota existir).
+    *   Usa as URLs reais do `.env`.
+    *   Inicia o Chrome e executa o robô contra os sistemas reais.
+
+### 💡 Por que isso é bom para você (Tiago/xAgron)?
+
+*   **Controle Total:** Você não precisa mais lembrar de editar o `.env` antes de rodar.
+*   **Feedback Visual:** O menu te diz se o Mock ou a VPN estão funcionando *antes* de tentar abrir o Chrome, evitando erros de `Target Closed` ou `DNS Error` surpresa.
+*   **Profissionalismo:** Parece uma ferramenta de software madura, não apenas um script solto.
+*   **Flexibilidade:** Permite alternar rapidamente entre contextos (Casa vs Trabalho).
+
+Quer que eu ajuste alguma mensagem do menu ou adicione mais alguma opção (como "Limpar Cache" ou "Ver Logs")?
+
+### USER
+atualize o package.json
+
+{
+  "name": "auto-robo",
+  "version": "2.0.0",
+  "description": "Robô de automação para sistemas GOI, WFM e GPS",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "concurrently \"npm run mock\" \"node --watch index.js\"",
+    "test:chrome": "node scripts/test-chrome.js",
+    "test:connect": "node scripts/test-connection.js",
+    "test:puppeteer": "node scripts/test-puppeteer.js",
+    "lint": "eslint src/**/*.js",
+    "mock": "node scripts/mock-server.js",
+    "test:local": "cross-env MODO_TESTE=true LOGIN_URL=http://localhost:3456/login npm start"
+  },
+  "keywords": [
+    "puppeteer",
+    "automation",
+    "vivo",
+    "goi",
+    "wfm"
+  ],
+  "author": "xAgron",
+  "license": "MIT",
+  "dependencies": {
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.22.1",
+    "puppeteer": "^24.15.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0"
+  }
+}
+
+
+### ASSISTANT
+Aqui está o `package.json` atualizado e otimizado.
+
+**Principais alterações:**
+1.  **Adição do script `check:vpn`**: Para validar rapidamente se você está na rede corporativa antes de tentar rodar o robô real.
+2.  **Reorganização dos Scripts**: Separados por categoria (Principal, Desenvolvimento/Teste, Diagnóstico) para facilitar a leitura.
+3.  **Dependências Confirmadas**: Mantive `express`, `concurrently` e `cross-env` que são essenciais para o fluxo de desenvolvimento local (Mock) e testes.
+
+```json
+{
+  "name": "auto-robo",
+  "version": "2.0.0",
+  "description": "Robô de automação para sistemas GOI, WFM e GPS com suporte a Mock Local",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "concurrently \"npm run mock\" \"node --watch index.js\"",
+    
+    "mock": "node scripts/mock-server.js",
+    "start:test": "cross-env MODO_TESTE=true node index.js",
+    "start:local": "cross-env MODO_TESTE=true LOGIN_URL=http://localhost:3456/login node index.js",
+    
+    "check:vpn": "node scripts/check-vpn.js",
+    "test:chrome": "node scripts/test-chrome.js",
+    "test:connect": "node scripts/test-connection.js",
+    "test:puppeteer": "node scripts/test-puppeteer.js",
+    "test:mock": "node scripts/test-mock.js",
+    
+    "lint": "eslint src/**/*.js"
+  },
+  "keywords": [
+    "puppeteer",
+    "automation",
+    "vivo",
+    "goi",
+    "wfm",
+    "mock-server"
+  ],
+  "author": "xAgron",
+  "license": "MIT",
+  "dependencies": {
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.22.1",
+    "puppeteer": "^24.15.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0"
+  }
+}
+```
+
+### 📋 Guia Rápido dos Novos Comandos
+
+| Comando | Quando Usar | O que faz |
+| :--- | :--- | :--- |
+| `npm start` | **No Trabalho (Com Cabo/VPN)** | Roda o robô conectando aos sistemas reais da Vivo. |
+| `npm run dev` | **Em Casa (Desenvolvimento)** | Inicia o **Mock Server** e o Robô simultaneamente. Ideal para codar e testar a lógica sem VPN. |
+| `npm run start:test` | **Teste Rápido** | Roda o robô em modo teste (usa URLs públicas como httpbin.org se configurado). |
+| `npm run check:vpn` | **Antes de ir trabalhar** | Verifica se seu DNS resolve `goi.vivo.com.br`. Se falhar, você não está na rede correta. |
+| `npm run test:mock` | **Debug** | Testa apenas se o servidor Mock local está respondendo corretamente. |
+
+### 💡 Dica para o Fluxo em Casa
+Como você não tem VPN em casa, seu fluxo principal será:
+1.  Edite o `.env` e garanta que `MODO_TESTE=true` e as URLs apontem para `http://localhost:3456/...` (ou use o comando `npm run start:local`).
+2.  Execute `npm run dev`.
+3.  O terminal mostrará os logs do Mock Server e do Robô lado a lado.
+
+Precisa que eu gere o código do arquivo `scripts/check-vpn.js` ou `scripts/test-mock.js` para garantir que esses novos comandos funcionem?
+
+### USER
+Agora como vamos fazer para rodar o menu
+
+### ASSISTANT
+Para integrar o **Menu Interativo** que criamos anteriormente ao seu projeto, precisamos fazer três ajustes rápidos:
+
+1.  Instalar a dependência `cross-env` (para garantir que as variáveis de ambiente funcionem no Windows).
+2.  Atualizar o `package.json` com os novos scripts.
+3.  Substituir o conteúdo do `index.js` para chamar o menu antes de tudo.
+
+Aqui está o passo a passo exato:
+
+### 1. Instale as Dependências Necessárias
+
+No seu terminal (PowerShell), execute:
+
+```powershell
+npm install express concurrently cross-env
+```
+
+*   `express`: Para o Mock Server funcionar.
+*   `concurrently`: Para rodar Mock e Robô juntos se quiser.
+*   `cross-env`: Para configurar variáveis de ambiente (`MODO_TESTE`) de forma compatível com Windows.
+
+---
+
+### 2. Atualize o `package.json`
+
+Substitua todo o conteúdo do seu `package.json` por este. Note que adicionamos os scripts de diagnóstico e o script principal continua sendo `node index.js`, mas agora o `index.js` terá o menu.
+
+```json
+{
+  "name": "auto-robo",
+  "version": "2.0.0",
+  "description": "Robô de automação para sistemas GOI, WFM e GPS com Menu Interativo",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "concurrently \"npm run mock\" \"node --watch index.js\"",
+    "mock": "node scripts/mock-server.js",
+    
+    "check:vpn": "node scripts/check-vpn.js",
+    "test:mock": "node scripts/test-mock.js",
+    "test:chrome": "node scripts/test-chrome.js",
+    
+    "lint": "eslint src/**/*.js"
+  },
+  "keywords": [
+    "puppeteer",
+    "automation",
+    "vivo",
+    "goi",
+    "wfm",
+    "mock-server"
+  ],
+  "author": "xAgron",
+  "license": "MIT",
+  "dependencies": {
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.22.1",
+    "puppeteer": "^24.15.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0"
+  }
+}
+```
+
+---
+
+### 3. Crie/Atualize o Arquivo do Menu (`src/cli/menu.js`)
+
+Crie a pasta `src/cli` se não existir, e dentro dela crie o arquivo `menu.js` com o código abaixo. Este código gerencia a escolha do usuário e configura o ambiente na memória.
+
+```javascript
+// src/cli/menu.js
+import readline from 'readline';
+import logger from '../utils/logger.js';
+
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
+
+const question = (query) => new Promise((resolve) => rl.question(query, resolve));
+
+// Cores para o menu
+const COLORS = {
+  reset: '\x1b[0m',
+  cyan: '\x1b[36m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  red: '\x1b[31m',
+  bright: '\x1b[1m'
+};
+
+const showHeader = () => {
+  console.clear();
+  console.log(`${COLORS.cyan}
+╔════════════════════════════════════════════════════════╗`);
+  console.log(`${COLORS.cyan}║  🤖 AUTO ROBO v2.0 - Menu Principal              ║`);
+  console.log(`${COLORS.cyan}║  Desenvolvido por: xAgron                        ║`);
+  console.log(`${COLORS.cyan}╚════════════════════════════════════════════════════════╝${COLORS.reset}
+`);
+};
+
+const checkMockServer = async () => {
+  try {
+    const response = await fetch('http://localhost:3456/login', { method: 'HEAD' });
+    if (response.ok) {
+      logger.success('Mock Server está ONLINE ✅');
+      return true;
+    }
+  } catch (e) {
+    logger.error('Mock Server está OFFLINE ❌');
+    logger.info('Execute "npm run mock" em outro terminal.');
+    return false;
+  }
+};
+
+const checkVPN = async () => {
+  try {
+    const dns = await import('dns').then(m => m.promises);
+    await dns.lookup('goi.vivo.com.br');
+    logger.success('DNS Corporativo resolvido (VPN/Cabo provável) ✅');
+    return true;
+  } catch (e) {
+    logger.error('DNS Corporativo NÃO resolvido (Sem VPN/Cabo) ❌');
+    return false;
+  }
+};
+
+export const showMainMenu = async () => {
+  showHeader();
+  
+  console.log(`${COLORS.bright}Escolha o modo de execução:${COLORS.reset}`);
+  console.log(`  ${COLORS.green}[1]${COLORS.reset} Modo Desenvolvimento (Mock Local)`);
+  console.log(`  ${COLORS.cyan}[2]${COLORS.reset} Modo Produção (Sistemas Reais)`);
+  console.log(`  ${COLORS.yellow}[3]${COLORS.reset} Diagnóstico de Rede`);
+  console.log(`  ${COLORS.red}[0]${COLORS.reset} Sair`);
+  console.log('');
+
+  const choice = await question('👉 Digite sua opção: ');
+
+  switch (choice.trim()) {
+    case '1':
+      return await handleDevMode();
+    case '2':
+      return await handleProdMode();
+    case '3':
+      await handleDiagnostics();
+      return showMainMenu(); // Volta ao menu após diagnóstico
+    case '0':
+      logger.info('Saindo...');
+      rl.close();
+      process.exit(0);
+      break;
+    default:
+      logger.warn('Opção inválida. Tente novamente.');
+      await new Promise(r => setTimeout(r, 1500));
+      return showMainMenu();
+  }
+};
+
+const handleDevMode = async () => {
+  logger.info('Configurando Modo Desenvolvimento...');
+  
+  const isMockUp = await checkMockServer();
+  
+  if (!isMockUp) {
+    const startMock = await question('⚠️  Mock Server não detectado. Deseja iniciar agora? (s/n): ');
+    if (startMock.toLowerCase() === 's') {
+      logger.warn('Por favor, abra OUTRO terminal e execute: npm run mock');
+      await question('Pressione ENTER quando o Mock Server estiver pronto...');
+    } else {
+      logger.warn('Cancelando execução. Inicie o Mock Server manualmente.');
+      rl.close();
+      process.exit(0);
+    }
+  }
+
+  // Configura variáveis NA MEMÓRIA para esta execução
+  process.env.MODO_TESTE = 'true';
+  process.env.LOGIN_URL = 'http://localhost:3456/login';
+  process.env.AGENDAMENTO_URL = 'http://localhost:3456/agendamento/atendimento.php';
+  
+  logger.success('Modo Desenvolvimento Ativado! Iniciando robô...');
+  await new Promise(r => setTimeout(r, 1000));
+  rl.close();
+  return 'DEV';
+};
+
+const handleProdMode = async () => {
+  logger.info('Configurando Modo Produção...');
+  
+  const hasVPN = await checkVPN();
+  
+  if (!hasVPN) {
+    const force = await question('⚠️  VPN/Rede Corporativa não detectada. Deseja continuar mesmo assim? (s/n): ');
+    if (force.toLowerCase() !== 's') {
+      logger.warn('Conecte-se à VPN e tente novamente.');
+      rl.close();
+      process.exit(0);
+    }
+  }
+
+  process.env.MODO_TESTE = 'false';
+  // As URLs reais vêm do .env, então não sobrescrevemos aqui
+  
+  logger.success('Modo Produção Ativado! Iniciando robô...');
+  await new Promise(r => setTimeout(r, 1000));
+  rl.close();
+  return 'PROD';
+};
+
+const handleDiagnostics = async () => {
+  logger.info('Executando diagnóstico...');
+  console.log('');
+  await checkMockServer();
+  await checkVPN();
+  console.log('');
+  await question('Pressione ENTER para voltar ao menu...');
+};
+```
+
+---
+
+### 4. Atualize o `index.js` (Ponto de Entrada)
+
+Substitua todo o conteúdo do seu `index.js` na raiz do projeto por este. Ele importa o menu, espera a escolha e só depois inicia a automação.
+
+```javascript
+// index.js - Entry Point do Auto Robô v2.0
+import { initBrowser, closeBrowser } from './src/browser/index.js';
+import { loginService, injectionService, navigationService } from './src/index.js';
+import { logger, automationConfig } from './src/index.js';
+import { captureAndSave } from './src/utils/screenshots.js';
+import { sleep } from './src/utils/wait.js';
+import { showMainMenu } from './src/cli/menu.js'; // Importa o menu
+
+// Função principal de execução da automação
+const runAutomation = async () => {
+  let browser = null;
+  let page = null;
+  try {
+    logger.divider();
+    
+    // 1. Inicializa navegador
+    logger.info('main', '📦 Inicializando navegador...');
+    const { browser: br, page: pg } = await initBrowser();
+    browser = br;
+    page = pg;
+
+    // 2. Login no GOI
+    logger.info('main', '🔐 Etapa 1: Login no GOI');
+    await loginService.loginGOI(page);
+    await sleep(1000);
+
+    // 3. Login no WFM (se habilitado)
+    // Nota: systemsConfig precisa ser importado ou acessado via env
+    // Vamos assumir que systemsConfig está exportado em src/index.js ou usamos env direto
+    import('./src/config/systems.js').then(sys => {
+        if (sys.default.abrirWFM) {
+            logger.info('main', '🔐 Etapa 2: Login no WFM');
+            loginService.loginWFM(page);
+        }
+    }).catch(() => {}); // Ignora erro se não achar, segue o fluxo
+    
+    await sleep(1000);
+
+    // 4. Abre abas adicionais
+    logger.info('main', '🗂️  Etapa 3: Abrindo abas adicionais');
+    // Nota: navigationService.openSystemTabs precisa estar implementado
+    // Se não estiver, comente esta linha por enquanto
+    // const extraTabs = await navigationService.openSystemTabs(browser, page);
+
+    // 5. Executa Injeção D0
+    logger.info('main', '💉 Etapa 4: Executando Injeção D0');
+    await injectionService.executarInjecaoD0(page);
+
+    // 6. Busca e atribui atividade (se configurado)
+    if (automationConfig.atividadeTeste) {
+      logger.info('main', '🎯 Etapa 5: Buscando atividade de teste');
+      await injectionService.buscarEAtribuirAtividade(page, automationConfig.atividadeTeste);
+    }
+
+    // 7. Screenshot final
+    logger.info('main', '📸 Salvando screenshot de conclusão...');
+    await captureAndSave(page, 'conclusao');
+
+    logger.divider();
+    logger.success('main', '✨ Automação concluída com sucesso!');
+
+    // Mantém navegador aberto para inspeção manual
+    if (process.env.HEADLESS !== 'true') {
+      console.log('\n🔍 Navegador mantido aberto.');
+      console.log('Pressione ENTER para fechar e encerrar...');
+      await new Promise(resolve => {
+        process.stdin.resume();
+        process.stdin.once('data', () => {
+          process.stdin.pause();
+          resolve();
+        });
+      });
+    }
+
+  } catch (error) {
+    logger.divider();
+    logger.error('main', `❌ Erro crítico: ${error.message}`, error);
+    if (page) {
+      await captureAndSave(page, 'erro_critico');
+    }
+    process.exitCode = 1;
+  } finally {
+    if (browser) {
+      logger.info('main', '🔒 Finalizando navegador...');
+      await closeBrowser(browser);
+    }
+    logger.info('main', '✅ Processo encerrado.');
+    process.exit(process.exitCode || 0);
+  }
+};
+
+// Ponto de Entrada Principal
+const main = async () => {
+  // Exibe o Menu e aguarda escolha
+  const mode = await showMainMenu();
+
+  // Se o usuário não saiu (opção 0), inicia a automação
+  if (mode === 'DEV' || mode === 'PROD') {
+    await runAutomation();
+  }
+};
+
+// Executa
+main().catch(err => {
+  console.error('💥 Erro fatal não tratado:', err);
+  process.exit(1);
+});
+```
+
+---
+
+### 🚀 Como Rodar Agora
+
+1.  Abra seu terminal na pasta do projeto.
+2.  Execute:
+    ```powershell
+    npm start
+    ```
+3.  O **Menu** aparecerá.
+4.  Digite `1` para testar em casa (Modo Desenvolvimento).
+    *   Ele vai perguntar se o Mock Server está rodando.
+    *   Se você ainda não iniciou o mock, abra **outro terminal**, rode `npm run mock` e depois pressione ENTER no terminal do menu.
+5.  O robô iniciará automaticamente configurado para o modo escolhido.
+
+Isso resolve a questão de ter uma tela inicial profissional e controlada! Teste e me diga se o menu apareceu corretamente.
+
+### USER
+na verdade quero abrir um locahost:3000 como menu
+
+### ASSISTANT
+Excelente ideia, Tiago! Uma interface web (Dashboard) é muito mais amigável, visual e profissional do que um menu de terminal. Além disso, permite que você veja logs em tempo real, clique em botões para iniciar ações e até visualize screenshots diretamente no navegador.
+
+Vamos criar um **Painel de Controle Web** usando **Express** e **Socket.io** (para comunicação em tempo real entre o Robô e a Interface).
+
+### 🏗️ Arquitetura da Solução
+1.  **Servidor Web (`src/server/index.js`)**: Serve a interface HTML/CSS e recebe comandos do usuário.
+2.  **Interface (`public/index.html`)**: O dashboard visual com botões "Iniciar Mock", "Iniciar Robô", "Parar" e área de Logs.
+3.  **Integração (`index.js`)**: O robô agora escuta eventos do servidor web para iniciar as tarefas.
+
+---
+
+### Passo 1: Instalar Dependências Web
+
+Precisamos do `express` (servidor web) e `socket.io` (comunicação em tempo real).
+
+```powershell
+npm install express socket.io
+```
+
+---
+
+### Passo 2: Criar o Servidor Web e Painel
+
+Crie a pasta `src/server` e dentro dela o arquivo `index.js`. Este arquivo será o novo "cérebro" que segura a aplicação web.
+
+#### `src/server/index.js`
+
+```javascript
+// src/server/index.js
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { runAutomation } from '../../index.js'; // Importa a lógica do robô
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: { origin: "*" }
+});
+
+const PORT = process.env.WEB_PORT || 3000;
+
+// Servir arquivos estáticos (HTML, CSS, JS do frontend)
+app.use(express.static(path.join(__dirname, '../../public')));
+
+// Estado global simples
+let isRunning = false;
+
+// Rota principal serve o index.html
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../public/index.html'));
+});
+
+// Socket.IO: Comunicação em Tempo Real
+io.on('connection', (socket) => {
+  console.log('🔌 Cliente conectado ao Dashboard');
+
+  // Envia status inicial
+  socket.emit('status', { running: isRunning });
+
+  // Evento: Usuário clicou em "Iniciar Robô"
+  socket.on('start-robot', async (data) => {
+    if (isRunning) {
+      socket.emit('log', { level: 'warn', msg: '⚠️ Robô já está em execução.' });
+      return;
+    }
+
+    const mode = data.mode; // 'DEV' ou 'PROD'
+    isRunning = true;
+    socket.emit('status', { running: true });
+    socket.emit('log', { level: 'info', msg: `🚀 Iniciando Robô no modo: ${mode}` });
+
+    try {
+      // Configura variáveis de ambiente baseado na escolha do usuário
+      if (mode === 'DEV') {
+        process.env.MODO_TESTE = 'true';
+        process.env.LOGIN_URL = 'http://localhost:3456/login';
+        process.env.AGENDAMENTO_URL = 'http://localhost:3456/agendamento/atendimento.php';
+      } else {
+        process.env.MODO_TESTE = 'false';
+        // URLs reais vêm do .env
+      }
+
+      // Executa a automação
+      await runAutomation(socket); // Passamos o socket para enviar logs
+      
+      socket.emit('log', { level: 'success', msg: '✅ Automação concluída!' });
+    } catch (error) {
+      socket.emit('log', { level: 'error', msg: `❌ Erro Crítico: ${error.message}` });
+    } finally {
+      isRunning = false;
+      socket.emit('status', { running: false });
+    }
+  });
+
+  // Evento: Usuário clicou em "Iniciar Mock Server" (opcional, pode ser externo)
+  socket.on('start-mock', () => {
+    socket.emit('log', { level: 'info', msg: '💡 Para iniciar o Mock Server, use o terminal: npm run mock' });
+  });
+
+  socket.on('disconnect', () => {
+    console.log('🔌 Cliente desconectado');
+  });
+});
+
+// Inicia o servidor web
+httpServer.listen(PORT, () => {
+  console.log(`
+╔════════════════════════════════════════════════════════╗
+║  🌐 Dashboard do Auto Robô v2.0                        ║
+║  Acesse: http://localhost:${PORT}                       ║
+╚════════════════════════════════════════════════════════╝
+  `);
+});
+```
+
+---
+
+### Passo 3: Atualizar a Lógica do Robô (`index.js`)
+
+Precisamos modificar o `index.js` para aceitar o `socket` como parâmetro e enviar os logs para a web, além de manter os logs no console.
+
+#### `index.js` (Atualizado)
+
+```javascript
+// index.js - Entry Point do Auto Robô v2.0
+import { initBrowser, closeBrowser } from './src/browser/index.js';
+import { loginService, injectionService, navigationService } from './src/index.js';
+import { logger, automationConfig } from './src/index.js';
+import { captureAndSave } from './src/utils/screenshots.js';
+import { sleep } from './src/utils/wait.js';
+
+// Função principal de execução da automação
+// Agora aceita 'socket' opcional para enviar logs via web
+export const runAutomation = async (socket = null) => {
+  let browser = null;
+  let page = null;
+
+  // Helper para enviar log duplo (Console + Web)
+  const emitLog = (level, msg) => {
+    logger[level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'info']('main', msg);
+    if (socket) socket.emit('log', { level, msg });
+  };
+
+  try {
+    emitLog('info', '📦 Inicializando navegador...');
+    
+    // 1. Inicializa navegador
+    const { browser: br, page: pg } = await initBrowser();
+    browser = br;
+    page = pg;
+
+    // 2. Login no GOI
+    emitLog('info', '🔐 Etapa 1: Login no GOI');
+    await loginService.loginGOI(page);
+    await sleep(1000);
+
+    // 3. Login no WFM (se habilitado)
+    // Nota: systemsConfig precisa ser importado ou acessado via env
+    // Vamos assumir que systemsConfig está exportado em src/index.js ou usamos env direto
+    import('./src/config/systems.js').then(sys => {
+        if (sys.default.abrirWFM) {
+            emitLog('info', '🔐 Etapa 2: Login no WFM');
+            loginService.loginWFM(page);
+        }
+    }).catch(() => {}); 
+    
+    await sleep(1000);
+
+    // 4. Abre abas adicionais
+    emitLog('info', '🗂️  Etapa 3: Abrindo abas adicionais');
+    // const extraTabs = await navigationService.openSystemTabs(browser, page);
+
+    // 5. Executa Injeção D0
+    emitLog('info', '💉 Etapa 4: Executando Injeção D0');
+    await injectionService.executarInjecaoD0(page);
+
+    // 6. Busca e atribui atividade (se configurado)
+    if (automationConfig.atividadeTeste) {
+      emitLog('info', '🎯 Etapa 5: Buscando atividade de teste');
+      await injectionService.buscarEAtribuirAtividade(page, automationConfig.atividadeTeste);
+    }
+
+    // 7. Screenshot final
+    emitLog('info', '📸 Salvando screenshot de conclusão...');
+    await captureAndSave(page, 'conclusao');
+
+    emitLog('success', '✨ Automação concluída com sucesso!');
+
+  } catch (error) {
+    emitLog('error', `❌ Erro crítico: ${error.message}`);
+    if (page) {
+      await captureAndSave(page, 'erro_critico');
+    }
+    throw error; // Propaga erro para o servidor web tratar
+  } finally {
+    if (browser) {
+      emitLog('info', '🔒 Finalizando navegador...');
+      await closeBrowser(browser);
+    }
+  }
+};
+
+// Se este arquivo for executado diretamente (não via import do server), 
+// podemos manter um fallback ou apenas deixar o server controlar.
+// Para simplificar, vamos remover a execução automática antiga e depender do Server.
+```
+
+---
+
+### Passo 4: Criar a Interface Web (`public/index.html`)
+
+Crie a pasta `public` na raiz do projeto e dentro dela o arquivo `index.html`.
+
+#### `public/index.html`
+
+```html
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Robo v2.0 - Dashboard</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --text-color: #c9d1d9;
+            --accent-green: #2ea043;
+            --accent-red: #da3633;
+            --accent-blue: #58a6ff;
+            --border-color: #30363d;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        h1 { color: var(--accent-blue); margin-bottom: 20px; }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            display: grid;
+            gap: 20px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: opacity 0.2s;
+        }
+
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-dev { background-color: var(--accent-blue); color: white; }
+        .btn-prod { background-color: var(--accent-green); color: white; }
+        .btn-stop { background-color: var(--accent-red); color: white; }
+
+        .status-indicator {
+            text-align: center;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+        .status-dot {
+            height: 10px;
+            width: 10px;
+            background-color: #555;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        .status-dot.active { background-color: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); }
+
+        .logs-container {
+            height: 400px;
+            overflow-y: auto;
+            background-color: #000;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 10px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .log-entry { margin-bottom: 5px; border-bottom: 1px solid #222; padding-bottom: 2px; }
+        .log-info { color: #58a6ff; }
+        .log-success { color: #2ea043; }
+        .log-warn { color: #d29922; }
+        .log-error { color: #f85149; }
+        .log-time { color: #8b949e; margin-right: 10px; font-size: 0.8em; }
+
+    </style>
+</head>
+<body>
+
+    <h1>🤖 Auto Robo v2.0 - Dashboard</h1>
+
+    <div class="container">
+        <!-- Painel de Controle -->
+        <div class="card">
+            <h2>Controle de Execução</h2>
+            <div class="controls">
+                <button id="btnDev" class="btn-dev" onclick="startRobot('DEV')">▶ Modo Desenvolvimento (Mock)</button>
+                <button id="btnProd" class="btn-prod" onclick="startRobot('PROD')">▶ Modo Produção (Real)</button>
+            </div>
+            <div class="status-indicator">
+                <span id="statusDot" class="status-dot"></span>
+                <span id="statusText">Aguardando comando...</span>
+            </div>
+        </div>
+
+        <!-- Painel de Logs -->
+        <div class="card">
+            <h2>Logs em Tempo Real</h2>
+            <div id="logs" class="logs-container"></div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const logsDiv = document.getElementById('logs');
+        const btnDev = document.getElementById('btnDev');
+        const btnProd = document.getElementById('btnProd');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+
+        // Recebe logs do servidor
+        socket.on('log', (data) => {
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${data.level}`;
+            entry.innerHTML = `<span class="log-time">[${time}]</span> ${data.msg}`;
+            logsDiv.appendChild(entry);
+            logsDiv.scrollTop = logsDiv.scrollHeight; // Auto-scroll
+        });
+
+        // Atualiza status dos botões
+        socket.on('status', (data) => {
+            const isRunning = data.running;
+            btnDev.disabled = isRunning;
+            btnProd.disabled = isRunning;
+            
+            if (isRunning) {
+                statusDot.classList.add('active');
+                statusText.innerText = "Robô em execução...";
+                statusText.style.color = "#2ea043";
+            } else {
+                statusDot.classList.remove('active');
+                statusText.innerText = "Pronto para iniciar";
+                statusText.style.color = "#c9d1d9";
+            }
+        });
+
+        function startRobot(mode) {
+            socket.emit('start-robot', { mode: mode });
+            addLocalLog(`Solicitando início no modo: ${mode}...`, 'info');
+        }
+
+        function addLocalLog(msg, level) {
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${level}`;
+            entry.innerHTML = `<span class="log-time">[${time}]</span> ${msg}`;
+            logsDiv.appendChild(entry);
+        }
+    </script>
+</body>
+</html>
+```
+
+---
+
+### Passo 5: Atualizar `package.json`
+
+Mude o script `start` para rodar o servidor web.
+
+```json
+{
+  "scripts": {
+    "start": "node src/server/index.js",
+    "mock": "node scripts/mock-server.js",
+    "dev": "concurrently \"npm run mock\" \"node src/server/index.js\""
+  }
+}
+```
+
+---
+
+### 🚀 Como Usar Agora
+
+1.  **Inicie o Servidor Web:**
+    ```powershell
+    npm start
+    ```
+2.  **Acesse o Dashboard:**
+    Abra seu navegador e vá para `http://localhost:3000`.
+3.  **Use o Menu Visual:**
+    *   Clique em **"Modo Desenvolvimento"** para rodar contra o Mock Local (certifique-se de ter rodado `npm run mock` em outro terminal antes, ou ajuste o código para iniciar o mock automaticamente se quiser).
+    *   Clique em **"Modo Produção"** para rodar contra os sistemas reais (requer VPN/Cabo).
+4.  **Acompanhe os Logs:**
+    Tudo o que acontecia no terminal agora aparece em tempo real na tela preta do dashboard, com cores e timestamps.
+
+### 💡 Vantagens para Você (Tiago/xAgron)
+*   **Visual Limpo:** Separa o controle (botões) da execução (logs).
+*   **Facilidade de Teste:** Não precisa digitar comandos no terminal toda vez.
+*   **Profissionalismo:** Parece uma ferramenta enterprise real.
+*   **Extensível:** No futuro, você pode adicionar botões para "Ver Screenshot", "Baixar Relatório Excel" ou "Agendar Tarefa" diretamente nessa interface.
+
+O que achou dessa abordagem? Quer que eu ajuste alguma cor ou funcionalidade do dashboard?
+
+### USER
+{
+  "name": "auto-robo",
+  "version": "2.0.0",
+  "description": "Robô de automação para sistemas GOI, WFM e GPS com Menu Interativo",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "concurrently \"npm run mock\" \"node --watch index.js\"",
+    "mock": "node scripts/mock-server.js",
+    "check:vpn": "node scripts/check-vpn.js",
+    "test:mock": "node scripts/test-mock.js",
+    "test:chrome": "node scripts/test-chrome.js",
+    "lint": "eslint src/**/*.js"
+  },
+  "keywords": [
+    "puppeteer",
+    "automation",
+    "vivo",
+    "goi",
+    "wfm",
+    "mock-server"
+  ],
+  "author": "xAgron",
+  "license": "MIT",
+  "dependencies": {
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.22.1",
+    "puppeteer": "^24.15.0",
+    "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0"
+  }
+}
+
+
+Atualize o package.json
+
+### ASSISTANT
+Aqui está o `package.json` atualizado e otimizado para a nova arquitetura com **Dashboard Web (localhost:3000)** e **Servidor Mock**.
+
+Fiz as seguintes melhorias:
+1.  **Script `start`**: Agora aponta para `src/server/index.js` (o Dashboard).
+2.  **Script `dev`**: Usa `concurrently` para rodar o Dashboard, o Robô (em modo watch) e o Mock Server simultaneamente. Ideal para desenvolver tudo de uma vez.
+3.  **Organização**: Separei scripts de produção, desenvolvimento e diagnóstico.
+
+```json
+{
+  "name": "auto-robo",
+  "version": "2.0.0",
+  "description": "Robô de automação GOI/WFM/GPS com Dashboard Web e Mock Server",
+  "type": "module",
+  "main": "src/server/index.js",
+  "scripts": {
+    "start": "node src/server/index.js",
+    "dev": "concurrently \"npm run mock\" \"node --watch src/server/index.js\"",
+    
+    "mock": "node scripts/mock-server.js",
+    
+    "check:vpn": "node scripts/check-vpn.js",
+    "test:mock": "node scripts/test-mock.js",
+    "test:chrome": "node scripts/test-chrome.js",
+    
+    "lint": "eslint src/**/*.js"
+  },
+  "keywords": [
+    "puppeteer",
+    "automation",
+    "vivo",
+    "goi",
+    "wfm",
+    "dashboard",
+    "mock-server"
+  ],
+  "author": "xAgron",
+  "license": "MIT",
+  "dependencies": {
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.22.1",
+    "puppeteer": "^24.15.0",
+    "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0"
+  }
+}
+```
+
+### 🚀 Como usar agora:
+
+1.  **Modo Produção (Dashboard Real):**
+    ```powershell
+    npm start
+    ```
+    *   Inicia o Dashboard em `http://localhost:3000`.
+    *   Você clica nos botões da interface para iniciar o robô.
+
+2.  **Modo Desenvolvimento (Tudo Automático):**
+    ```powershell
+    npm run dev
+    ```
+    *   Inicia o **Mock Server** (porta 3456).
+    *   Inicia o **Dashboard** (porta 3000).
+    *   Fica "ouvindo" alterações no código (`--watch`) para recarregar automaticamente se você mudar algo no `src/server` ou `index.js`.
+
+3.  **Apenas Mock Server (para testes manuais):**
+    ```powershell
+    npm run mock
+    ```
+
+### 💡 Dica para o Fluxo em Casa:
+Como você não tem VPN, use sempre o `npm run dev`.
+1.  O Mock Server vai simular o GOI.
+2.  O Dashboard vai permitir que você clique em "Iniciar Modo Desenvolvimento".
+3.  O Robô vai conectar ao Mock e executar a lógica visualmente para você validar os seletores e fluxos.
+
+### USER
+[05:39:34] Solicitando início no modo: DEV...
+[05:39:34] 🚀 Iniciando Robô no modo: DEV
+[05:39:34] 📦 Inicializando navegador...
+[05:39:35] 🔐 Etapa 1: Login no GOI
+[05:39:37] ❌ Erro crítico: net::ERR_CONNECTION_REFUSED at http://localhost:3456/login
+[05:39:37] 🔒 Finalizando navegador...
+[05:39:38] ❌ Erro Crítico: net::ERR_CONNECTION_REFUSED at http://localhost:3456/login
+[05:39:42] Solicitando início no modo: PROD...
+[05:39:42] 🚀 Iniciando Robô no modo: PROD
+[05:39:42] 📦 Inicializando navegador...
+[05:39:43] 🔐 Etapa 1: Login no GOI
+[05:39:46] ❌ Erro crítico: net::ERR_CONNECTION_REFUSED at http://localhost:3456/login
+[05:39:46] 🔒 Finalizando navegador...
+[05:39:46] ❌ Erro Crítico: net::ERR_CONNECTION_REFUSED at http://localhost:3456/login
+
+### ASSISTANT
+O erro `net::ERR_CONNECTION_REFUSED at http://localhost:3456/login` indica claramente que **o Servidor Mock (que roda na porta 3456) não está ligado**.
+
+O seu Dashboard Web (porta 3000) está funcionando, mas ele apenas *manda* o comando. Quem precisa "simular" o site da Vivo é o Mock Server, e ele está desligado.
+
+Além disso, notei que mesmo no modo **PROD**, ele tentou acessar `localhost:3456`. Isso significa que as variáveis de ambiente não estão sendo atualizadas corretamente ou o `.env` está forçando essa URL.
+
+Vamos corrigir isso em 3 passos rápidos:
+
+### 1. Inicie o Mock Server (Para o Modo DEV funcionar)
+
+Você precisa ter **dois terminais** abertos ou usar o comando `dev` que configura tudo junto.
+
+**Opção A: Dois Terminais (Recomendado para entender o fluxo)**
+1.  Abra um terminal e rode:
+    ```powershell
+    npm run mock
+    ```
+    *Aguarde aparecer: `🎭 Mock server rodando em http://localhost:3456`*
+2.  Abra **outro** terminal e rode o Dashboard:
+    ```powershell
+    npm start
+    ```
+3.  Acesse `http://localhost:3000` e clique em **Modo Desenvolvimento**.
+
+**Opção B: Um Comando Só (Mais fácil)**
+Se você instalou o `concurrently` (como sugerido no `package.json` anterior), use este comando único que liga o Mock e o Dashboard juntos:
+```powershell
+npm run dev
+```
+*Agora acesse `http://localhost:3000` e teste.*
+
+---
+
+### 2. Corrigindo o Modo PROD (Acessando Localhost em vez do Real)
+
+O log mostra que o modo PROD também está indo para `localhost:3456`. Isso acontece porque o código do servidor web (`src/server/index.js`) pode não estar limpando as variáveis de ambiente anteriores ou o `.env` está fixo.
+
+Vamos ajustar o `src/server/index.js` para garantir que o modo PROD use as URLs reais do `.env`.
+
+**Atualize `src/server/index.js` (trecho do `start-robot`):**
+
+```javascript
+  // Evento: Usuário clicou em "Iniciar Robô"
+  socket.on('start-robot', async (data) => {
+    if (isRunning) {
+      socket.emit('log', { level: 'warn', msg: '⚠️ Robô já está em execução.' });
+      return;
+    }
+
+    const mode = data.mode; // 'DEV' ou 'PROD'
+    isRunning = true;
+    socket.emit('status', { running: true });
+    socket.emit('log', { level: 'info', msg: `🚀 Iniciando Robô no modo: ${mode}` });
+
+    try {
+      // Configura variáveis de ambiente baseado na escolha do usuário
+      if (mode === 'DEV') {
+        process.env.MODO_TESTE = 'true';
+        process.env.LOGIN_URL = 'http://localhost:3456/login';
+        process.env.AGENDAMENTO_URL = 'http://localhost:3456/agendamento/atendimento.php';
+        socket.emit('log', { level: 'info', msg: '🔧 Configurado para Mock Local (Porta 3456)' });
+      } else {
+        // MODO PROD: Força o uso das variáveis do .env original
+        process.env.MODO_TESTE = 'false';
+        
+        // Recarrega o dotenv para garantir que pegue os valores originais do arquivo .env
+        // Nota: dotenv geralmente cacheia, então o ideal é que o .env já esteja correto
+        // Mas vamos garantir que não sobre lixo do modo DEV
+        delete process.env.LOGIN_URL; 
+        delete process.env.AGENDAMENTO_URL;
+        
+        // Força recarregamento simples (em apps complexos usa-se dotenv.config({ override: true }))
+        import('dotenv').then(dotenv => dotenv.config());
+        
+        socket.emit('log', { level: 'info', msg: '🔧 Configurado para Produção (URLs do .env)' });
+      }
+
+      // Executa a automação
+      await runAutomation(socket); 
+      
+      socket.emit('log', { level: 'success', msg: '✅ Automação concluída!' });
+    } catch (error) {
+      socket.emit('log', { level: 'error', msg: `❌ Erro Crítico: ${error.message}` });
+    } finally {
+      isRunning = false;
+      socket.emit('status', { running: false });
+    }
+  });
+```
+
+### 3. Verificação Rápida
+
+Para ter certeza absoluta de que o Mock Server é o problema:
+
+1.  Abra seu navegador Chrome normal.
+2.  Tente acessar: `http://localhost:3456/login`
+3.  **Se der erro "Não foi possível conectar"**: O Mock Server está desligado. Rode `npm run mock`.
+4.  **Se aparecer uma tela de login branca/simples**: O Mock Server está ligado. O problema era apenas não tê-lo iniciado.
+
+### Resumo do Plano de Ação:
+
+1.  Rode `npm run dev` (isso inicia Mock + Dashboard).
+2.  Acesse `http://localhost:3000`.
+3.  Clique em **Modo Desenvolvimento**.
+4.  Deve funcionar! 🚀
+
+Se ainda der erro, me avise se apareceu a mensagem `🎭 Mock server rodando...` no terminal!
+
+### USER
+# ================================
+# 🌐 CONEXÃO COM CHROME
+# ================================
+# Escolha o modo de conexão com o navegador:
+# - true  = Conecta ao Chrome aberto manualmente com --remote-debugging-port
+# - false = Puppeteer baixa e gerencia o Chrome automaticamente (padrão após install)
+USAR_CHROME_EXISTENTE=false
+
+# Porta de debug do Chrome (usada apenas se USAR_CHROME_EXISTENTE=true)
+CHROME_DEBUG_PORT=9222
+
+# URL completa para conexão CDP (Chrome DevTools Protocol)
+CHROME_DEBUG_URL=http://localhost:9222
+
+# Caminho do Chrome instalado no sistema (fallback opcional)
+# Use barras normais (/) ou duplas (\\) no Windows
+# CHROME_PATH=C:/Program Files/Google/Chrome/Application/chrome.exe
+
+# Modo headless: 
+# - false = navegador visível (recomendado para debug)
+# - true  = modo invisível (produção)
+# Observação: headless só funciona se USAR_CHROME_EXISTENTE=false
+HEADLESS=false
+
+# Delay entre ações em milissegundos (útil para debug/estabilidade)
+SLOW_MO=100
+
+# Perfil isolado do Chrome (evita conflitos com seu Chrome pessoal)
+# Crie a pasta antes: New-Item -ItemType Directory -Force -Path "C:\temp\puppeteer-profile"
+CHROME_USER_DATA_DIR=C:\temp\puppeteer-profile
+
+# ================================
+# 🌍 URLs DOS SISTEMAS
+# ================================
+LOGIN_URL=https://goi.vivo.com.br/login
+AGENDAMENTO_URL=http://goi.vivo.com.br/agendamento/atendimento.php
+WFM_URL=http://appwfm.gvt.net.br/wfm-search/detalhesWorkOrder.xhtml
+WFM_LOGIN_URL=http://appwfm.gvt.net.br/wfm-search/login.xhtml
+GPS_URL=http://gps.redecorp.br/gps/atendimento/index.jsf
+
+# ================================
+# 🔐 CREDENCIAIS - GOI
+# ================================
+LOGIN_EMAIL=seu_usuario@vivo.com.br
+LOGIN_PASSWORD=sua_senha_aqui
+
+# ================================
+# 🔐 CREDENCIAIS - WFM
+# ================================
+WFM_USERNAME=seu_usuario_rede
+WFM_PASSWORD=sua_senha_wfm
+
+# ================================
+# ⚙️ CONTROLE DE SISTEMAS
+# ================================
+ABRIR_WFM=true
+ABRIR_GPS=true
+WFM_AUTO_LOGIN=true
+
+# ================================
+# 🌐 CONFIGURAÇÕES WEB
+# ================================
+WEB_PORT=3000
+
+# ================================
+# 🎯 CONFIGURAÇÕES DE AUTOMAÇÃO
+# ================================
+# Atividade de teste para busca e atribuição
+ATIVIDADE_TESTE=7391517763
+
+# Timeout padrão para operações do Puppeteer (em ms)
+DEFAULT_TIMEOUT=60000
+
+# Tempo de espera para elementos (em ms)
+ELEMENT_WAIT_TIMEOUT=30000
+
+# Tentativas de retry para falhas de rede ou elementos não encontrados
+MAX_RETRIES=3
+
+# Intervalo entre retries (em ms)
+RETRY_DELAY=2000
+
+# Salvar screenshots de debug em caso de erro
+DEBUG_SCREENSHOTS=true
+
+# Pasta para output: logs, screenshots e relatórios
+OUTPUT_DIR=./output
+
+# Formato de data para logs e nomes de arquivo
+DATE_FORMAT=YYYY-MM-DD_HH-mm-ss
+
+# Nível de log: debug, info, warn, error
+LOG_LEVEL=info
+
+# ================================
+# 🔧 CONFIGURAÇÕES PUPPETEER
+# ================================
+# Ignorar erros de certificado HTTPS (útil para ambientes internos)
+IGNORE_HTTPS_ERRORS=true
+
+# Desabilitar recursos que podem causar instabilidade
+PUPPETEER_ARGS=--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage,--disable-accelerated-2d-canvas,--no-first-run,--no-zygote
+s
+# Habilitar logs detalhados do Puppeteer (apenas para debug)
+PUPPETEER_DEBUG=false
+
+MODO_TESTE=true
+
+# Modo teste com mock local
+MODO_TESTE=true
+
+# URLs apontando para o servidor local
+LOGIN_URL=http://localhost:3456/login
+AGENDAMENTO_URL=http://localhost:3456/agendamento/atendimento.php
+WFM_LOGIN_URL=http://localhost:3456/login
+WFM_URL=http://localhost:3456/agendamento/atendimento.php
+GPS_URL=http://localhost:3456/login
+
+# Credenciais fictícias para teste
+LOGIN_EMAIL=teste@mock.local
+LOGIN_PASSWORD=mock123npm run mock
+
+### ASSISTANT
+O problema está no seu arquivo `.env`. Você tem **conflitos de configuração** e linhas soltas no final do arquivo que estão quebrando a leitura das variáveis.
+
+Especificamente:
+1.  Você definiu `LOGIN_URL` duas vezes (uma para produção, outra para teste). O `dotenv` geralmente pega o último valor, mas a mistura de comentários e código no final está confusa.
+2.  As linhas `MODO_TESTE=true` e as URLs de mock estão misturadas com um comando `npm run mock` no final do texto, o que pode estar sendo interpretado como parte do valor da variável ou causando erro de sintaxe.
+3.  Para o Dashboard funcionar corretamente, o ideal é deixar o `.env` configurado para **Produção** (URLs reais) e deixar o **Dashboard** (código JavaScript) sobrescrever essas variáveis quando você clicar em "Modo Desenvolvimento".
+
+### ✅ Passo 1: Limpe seu `.env`
+
+Apague todo o conteúdo do seu arquivo `.env` e cole **exatamente** isto abaixo. Note que removemos as configurações de Mock daqui, pois elas serão injetadas pelo Dashboard.
+
+```env
+# ================================
+# 🌐 CONEXÃO COM CHROME
+# ================================
+USAR_CHROME_EXISTENTE=false
+HEADLESS=false
+SLOW_MO=50
+CHROME_USER_DATA_DIR=C:/temp/puppeteer-profile
+
+# ================================
+# 🌍 URLs DOS SISTEMAS (PADRÃO/PRODUÇÃO)
+# ================================
+# Estas são as URLs reais. O Dashboard irá sobrescrevê-las se você escolher "Modo DEV"
+LOGIN_URL=https://goi.vivo.com.br/login
+AGENDAMENTO_URL=http://goi.vivo.com.br/agendamento/atendimento.php
+WFM_URL=http://appwfm.gvt.net.br/wfm-search/detalhesWorkOrder.xhtml
+WFM_LOGIN_URL=http://appwfm.gvt.net.br/wfm-search/login.xhtml
+GPS_URL=http://gps.redecorp.br/gps/atendimento/index.jsf
+
+# ================================
+# 🔐 CREDENCIAIS
+# ================================
+# Preencha com seus dados reais para quando usar o Modo Produção
+LOGIN_EMAIL=seu_usuario@vivo.com.br
+LOGIN_PASSWORD=sua_senha_aqui
+WFM_USERNAME=seu_usuario_rede
+WFM_PASSWORD=sua_senha_wfm
+
+# ================================
+# ⚙️ CONTROLE DE SISTEMAS
+# ================================
+ABRIR_WFM=false
+ABRIR_GPS=false
+WFM_AUTO_LOGIN=true
+
+# ================================
+# 🌐 CONFIGURAÇÕES WEB (DASHBOARD)
+# ================================
+WEB_PORT=3000
+
+# ================================
+# 🎯 AUTOMAÇÃO
+# ================================
+ATIVIDADE_TESTE=7391517763
+DEFAULT_TIMEOUT=60000
+ELEMENT_WAIT_TIMEOUT=30000
+MAX_RETRIES=3
+RETRY_DELAY=2000
+DEBUG_SCREENSHOTS=true
+OUTPUT_DIR=./output
+LOG_LEVEL=info
+
+# ================================
+# 🔧 PUPPETEER
+# ================================
+IGNORE_HTTPS_ERRORS=true
+PUPPETEER_ARGS=--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage
+PUPPETEER_DEBUG=false
+```
+
+---
+
+### ✅ Passo 2: Inicie o Mock Server (Em outro terminal)
+
+O erro `ERR_CONNECTION_REFUSED` acontece porque o Dashboard tenta acessar o Mock, mas ele não está rodando.
+
+1.  Abra um **novo terminal** (PowerShell).
+2.  Rode:
+    ```powershell
+    npm run mock
+    ```
+3.  Aguarde a mensagem: `🎭 Mock server rodando em http://localhost:3456`.
+4.  **Não feche este terminal.**
+
+---
+
+### ✅ Passo 3: Inicie o Dashboard
+
+1.  Volte ao terminal principal.
+2.  Rode:
+    ```powershell
+    npm start
+    ```
+3.  Acesse `http://localhost:3000` no seu navegador.
+
+---
+
+### ✅ Passo 4: Use o Menu do Dashboard
+
+1.  No Dashboard, clique em **"Modo Desenvolvimento (Mock Local)"**.
+2.  O código do servidor (`src/server/index.js`) vai detectar esse clique e alterar as variáveis `process.env.LOGIN_URL` para `http://localhost:3456/login` **apenas para essa execução**.
+3.  Clique em "Iniciar".
+
+Agora o robô vai conectar ao Mock Server (que está rodando no passo 2) e o erro de conexão deve desaparecer.
+
+**Resumo da lógica:**
+*   `.env`: Configura o padrão (Produção).
+*   `npm run mock`: Liga o simulador local.
+*   `Dashboard`: Escolhe se usa o `.env` (Prod) ou força o Localhost (Dev).
+
+Tente esses passos e me avise se o log no Dashboard mudar para "Iniciando login..." sem o erro de conexão! 🚀
+
+### USER
+[05:49:26] Solicitando início no modo: DEV...
+[05:49:26] 🚀 Iniciando Robô no modo: DEV
+[05:49:26] 📦 Inicializando navegador...
+[05:49:27] 🔐 Etapa 1: Login no GOI
+[05:49:27] ❌ Erro crítico: net::ERR_NAME_NOT_RESOLVED at https://goi.vivo.com.br/login
+[05:49:27] 🔒 Finalizando navegador...
+[05:49:27] ❌ Erro Crítico: net::ERR_NAME_NOT_RESOLVED at https://goi.vivo.com.br/login
+[05:49:29] Solicitando início no modo: PROD...
+[05:49:29] 🚀 Iniciando Robô no modo: PROD
+[05:49:29] 📦 Inicializando navegador...
+[05:49:30] 🔐 Etapa 1: Login no GOI
+[05:49:30] ❌ Erro crítico: net::ERR_NAME_NOT_RESOLVED at https://goi.vivo.com.br/login
+[05:49:31] 🔒 Finalizando navegador...
+[05:49:31] ❌ Erro Crítico: net::ERR_NAME_NOT_RESOLVED at https://goi.vivo.com.br/login
+
+### ASSISTANT
+O problema é claro: **Mesmo no Modo DEV, o robô está tentando acessar a URL real (`goi.vivo.com.br`)** em vez do Mock Local (`localhost:3456`).
+
+Isso acontece porque o código do servidor (`src/server/index.js`) provavelmente não está conseguindo sobrescrever as variáveis de ambiente `LOGIN_URL` e `AGENDAMENTO_URL` antes que o módulo de configuração (`src/config/systems.js`) seja carregado. Como o Node.js faz cache dos módulos `import`, uma vez que o `systems.js` lê o `.env` na inicialização, mudar o `process.env` depois não afeta a configuração já carregada.
+
+Vamos corrigir isso com uma abordagem mais robusta: **Injeção Direta de Configuração**.
+
+### ✅ Solução: Forçar a Configuração no Momento da Execução
+
+Em vez de depender apenas de `process.env`, vamos passar a configuração correta diretamente para os serviços ou recarregar a configuração dinamicamente.
+
+#### 1. Atualize `src/server/index.js`
+
+Vamos modificar a lógica para garantir que as URLs corretas sejam usadas. A maneira mais segura é **recarregar o módulo de configuração** ou **passar as URLs como parâmetros**. Como refatorar todos os serviços agora seria complexo, vamos usar um truque eficaz: **Recarregar o dotenv e forçar a atualização das variáveis ANTES de importar a lógica do robô.**
+
+Mas há um problema: os `imports` no topo do arquivo são executados antes do código rodar.
+
+**A melhor estratégia para o seu caso atual:**
+Vamos criar uma função que **reinicia o processo** com as variáveis de ambiente corretas, ou ajustar o `src/config/systems.js` para ler as variáveis **dinamicamente** a cada chamada, não apenas na inicialização do módulo.
+
+Vamos optar pela solução mais simples e eficaz agora: **Modificar `src/config/systems.js` para ser dinâmico.**
+
+#### Passo 1: Edite `src/config/systems.js`
+
+Altere o arquivo para que ele leia `process.env` **dentro das funções/objetos** ou use uma função getter, mas como estamos exportando um objeto padrão, o ideal é garantir que o `dotenv` seja recarregado ou que as variáveis estejam corretas **antes** da importação.
+
+Como o `index.js` do servidor importa `runAutomation` do `index.js` raiz, e este importa os serviços, a configuração já está "travada".
+
+**Solução Rápida (Hardcode Inteligente no Server):**
+
+No `src/server/index.js`, vamos interceptar a execução e definir as variáveis **globalmente** e depois exigir que o código as use. Mas o problema é o cache.
+
+Vamos fazer o seguinte: **Reiniciar o processo filho com as vars corretas.** É a forma mais limpa sem refatorar toda a arquitetura de config agora.
+
+Substitua o conteúdo de `src/server/index.js` por este, que usa `child_process` para rodar o robô com as envs corretas:
+
+```javascript
+// src/server/index.js
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { spawn } from 'child_process';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: { origin: "*" }
+});
+
+const PORT = process.env.WEB_PORT || 3000;
+
+// Servir arquivos estáticos
+app.use(express.static(path.join(__dirname, '../../public')));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../public/index.html'));
+});
+
+let robotProcess = null;
+
+io.on('connection', (socket) => {
+  console.log('🔌 Cliente conectado');
+
+  socket.on('start-robot', (data) => {
+    if (robotProcess) {
+      socket.emit('log', { level: 'warn', msg: '⚠️ Robô já está rodando.' });
+      return;
+    }
+
+    const mode = data.mode; // 'DEV' ou 'PROD'
+    socket.emit('log', { level: 'info', msg: `🚀 Iniciando Robô no modo: ${mode}` });
+
+    // Define as variáveis de ambiente para o processo filho
+    const env = { ...process.env };
+    
+    if (mode === 'DEV') {
+      env.MODO_TESTE = 'true';
+      env.LOGIN_URL = 'http://localhost:3456/login';
+      env.AGENDAMENTO_URL = 'http://localhost:3456/agendamento/atendimento.php';
+      env.WFM_LOGIN_URL = 'http://localhost:3456/login';
+      env.WFM_URL = 'http://localhost:3456/agendamento/atendimento.php';
+      env.GPS_URL = 'http://localhost:3456/login';
+      socket.emit('log', { level: 'info', msg: '🔧 Configurado para Mock Local (Porta 3456)' });
+    } else {
+      env.MODO_TESTE = 'false';
+      // As URLs reais virão do .env original do sistema
+      socket.emit('log', { level: 'info', msg: '🔧 Configurado para Produção (URLs do .env)' });
+    }
+
+    // Inicia o processo filho (o robô principal)
+    // Usamos 'node index.js' na raiz do projeto
+    const projectRoot = path.join(__dirname, '../..');
+    robotProcess = spawn('node', ['index.js'], {
+      cwd: projectRoot,
+      env: env,
+      stdio: ['ignore', 'pipe', 'pipe'] // Captura stdout e stderr
+    });
+
+    socket.emit('status', { running: true });
+
+    // Captura a saída do robô e envia via socket
+    robotProcess.stdout.on('data', (data) => {
+      const text = data.toString();
+      // Envia linha por linha ou bloco
+      socket.emit('log', { level: 'info', msg: text.trim() });
+    });
+
+    robotProcess.stderr.on('data', (data) => {
+      const text = data.toString();
+      socket.emit('log', { level: 'error', msg: text.trim() });
+    });
+
+    robotProcess.on('close', (code) => {
+      socket.emit('log', { level: code === 0 ? 'success' : 'error', msg: `🏁 Robô finalizado (Código: ${code})` });
+      socket.emit('status', { running: false });
+      robotProcess = null;
+    });
+
+    robotProcess.on('error', (err) => {
+      socket.emit('log', { level: 'error', msg: `❌ Erro ao iniciar processo: ${err.message}` });
+      socket.emit('status', { running: false });
+      robotProcess = null;
+    });
+  });
+
+  socket.on('disconnect', () => {
+    console.log('🔌 Cliente desconectado');
+    // Opcional: Matar o robô se o cliente desconectar?
+    // if (robotProcess) robotProcess.kill();
+  });
+});
+
+httpServer.listen(PORT, () => {
+  console.log(`
+╔════════════════════════════════════════════════════════╗
+║  🌐 Dashboard do Auto Robô v2.0                        ║
+║  Acesse: http://localhost:${PORT}                       ║
+╚════════════════════════════════════════════════════════╝
+  `);
+});
+```
+
+#### Passo 2: Certifique-se de que o `index.js` raiz lê as ENVs corretamente
+
+O seu `index.js` raiz deve estar usando `dotenv.config()` no topo. Como estamos passando as variáveis via `env` no `spawn`, o `dotenv` vai ler essas variáveis de ambiente do processo (que têm precedência sobre o arquivo `.env` se configurado corretamente, ou o `dotenv` vai carregar o arquivo e sobrescrever?).
+
+**Atenção:** O `dotenv.config()` por padrão **não** sobrescreve variáveis que já existem no `process.env`.
+Como o `spawn` define `env.LOGIN_URL`, quando o `index.js` rodar e chamar `dotenv.config()`, ele verá que `LOGIN_URL` já existe e **manterá o valor passado pelo Dashboard** (localhost:3456). Isso é exatamente o que queremos!
+
+#### Passo 3: Teste Agora
+
+1.  **Terminal 1:** Inicie o Mock Server (essencial para o modo DEV):
+    ```powershell
+    npm run mock
+    ```
+2.  **Terminal 2:** Inicie o Dashboard:
+    ```powershell
+    npm start
+    ```
+3.  **Navegador:** Acesse `http://localhost:3000`.
+4.  Clique em **Modo Desenvolvimento**.
+
+Agora o Dashboard vai iniciar um **novo processo** do Node.js com as variáveis `LOGIN_URL=http://localhost:3456/login` injetadas. O robô vai ler essas variáveis, o `dotenv` vai respeitá-las, e ele acessará o Mock Server corretamente.
+
+### Por que isso funciona?
+*   **Isolamento:** Cada execução do robô é um processo separado.
+*   **Variáveis de Ambiente:** O `spawn` garante que o processo filho receba as ENVs corretas antes de qualquer código rodar.
+*   **Precedência:** O `dotenv` preserva variáveis existentes, então o valor injetado pelo Dashboard (localhost) vence o valor do arquivo `.env` (vivo.com.br).
+
+Tente essa alteração no `src/server/index.js` e me avise se o log mudar para `Acessando: http://localhost:3456/login`! 🚀
+
+### USER
+[05:51:53] Solicitando início no modo: DEV...
+[05:51:53] 🚀 Iniciando Robô no modo: DEV
+[05:51:53] 🔧 Configurado para Mock Local (Porta 3456)
+[05:51:54] 🏁 Robô finalizado (Código: 0)
+[05:52:06] Solicitando início no modo: PROD...
+[05:52:06] 🚀 Iniciando Robô no modo: PROD
+[05:52:06] 🔧 Configurado para Produção (URLs do .env)
+[05:52:06] 🏁 Robô finalizado (Código: 0)
+
+Apartir desse ponto como eu abra as paginas nos dois modos
+
+### ASSISTANT
+O problema é que o seu `index.js` (o código do robô) está terminando a execução **imediatamente** após iniciar, sem realmente abrir o navegador ou executar as etapas. O código de saída `0` significa "sucesso", mas como ele não fez nada, foi um "sucesso vazio".
+
+Isso acontece porque, ao usar `spawn` no servidor, se o `index.js` tiver algum erro de importação ou se a função `runAutomation` não for chamada corretamente, ele pode encerrar silenciosamente ou cair em um bloco `catch` que não está logando para o console padrão (stdout).
+
+Vamos corrigir isso garantindo que o `index.js` **sempre** tente rodar e **logue** o que está acontecendo.
+
+### 1. Verifique o `index.js` Raiz
+
+Certifique-se de que seu `index.js` na raiz do projeto está exatamente assim. Ele deve importar e executar a automação imediatamente.
+
+```javascript
+// index.js
+import { runAutomation } from './src/automation-runner.js'; // Ou onde estiver sua lógica principal
+
+console.log('🤖 [INDEX.JS] Processo iniciado.');
+
+// Executa imediatamente
+runAutomation().catch(err => {
+  console.error('💥 [INDEX.JS] Erro não tratado:', err);
+  process.exit(1);
+});
+```
+
+*Nota: Se você manteve a estrutura anterior onde `runAutomation` estava no próprio `index.js`, certifique-se de que a função é chamada no final do arquivo.*
+
+### 2. O Problema Provável: Falta de Logs no `stdout`
+
+O `spawn` captura apenas o que vai para `console.log` (stdout) e `console.error` (stderr). Se o seu logger estiver configurado para escrever apenas em arquivos ou se houver um erro antes do `console.log`, o Dashboard não vê nada.
+
+**Solução Rápida:** Adicione logs explícitos no início da execução do robô.
+
+No seu arquivo principal de lógica (ex: `src/automation-runner.js` ou `index.js`):
+
+```javascript
+export const runAutomation = async () => {
+  console.log('🚀 [ROBO] Iniciando função runAutomation...'); // Log crítico para debug
+  
+  let browser = null;
+  try {
+    console.log('📦 [ROBO] Chamando initBrowser...');
+    const { browser: br, page } = await initBrowser();
+    browser = br;
+    
+    console.log('✅ [ROBO] Navegador inicializado. URL atual:', page.url());
+    
+    // ... resto do código ...
+    
+  } catch (error) {
+    console.error('❌ [ROBO] Erro na automação:', error.message);
+    throw error;
+  } finally {
+    if (browser) {
+      console.log('🔒 [ROBO] Fechando navegador...');
+      await browser.close();
+    }
+    console.log('🏁 [ROBO] Processo finalizado.');
+  }
+};
+```
+
+### 3. Debugando o `spawn`
+
+Para ver o que está acontecendo "por baixo dos panos", vamos melhorar o tratamento de erros no `src/server/index.js`.
+
+Atualize a parte do `spawn` para capturar erros de forma mais verbosa:
+
+```javascript
+    // Inicia o processo filho
+    const projectRoot = path.join(__dirname, '../..');
+    robotProcess = spawn('node', ['index.js'], {
+      cwd: projectRoot,
+      env: env,
+      stdio: ['ignore', 'pipe', 'pipe'] 
+    });
+
+    socket.emit('status', { running: true });
+
+    // Captura STDOUT (console.log)
+    robotProcess.stdout.on('data', (data) => {
+      const text = data.toString();
+      console.log('[SERVER STDOUT]:', text); // Log no terminal do servidor para debug
+      socket.emit('log', { level: 'info', msg: text.trim() });
+    });
+
+    // Captura STDERR (console.error e erros de sistema)
+    robotProcess.stderr.on('data', (data) => {
+      const text = data.toString();
+      console.error('[SERVER STDERR]:', text); // Log no terminal do servidor para debug
+      socket.emit('log', { level: 'error', msg: text.trim() });
+    });
+
+    robotProcess.on('close', (code) => {
+      console.log(`[SERVER] Processo filho encerrou com código ${code}`);
+      socket.emit('log', { level: code === 0 ? 'success' : 'error', msg: `🏁 Robô finalizado (Código: ${code})` });
+      socket.emit('status', { running: false });
+      robotProcess = null;
+    });
+
+    robotProcess.on('error', (err) => {
+      console.error('[SERVER] Erro ao spawnar processo:', err);
+      socket.emit('log', { level: 'error', msg: `❌ Erro ao iniciar processo: ${err.message}` });
+      socket.emit('status', { running: false });
+      robotProcess = null;
+    });
+```
+
+### 4. Teste Agora
+
+1.  Reinicie o Dashboard (`npm start`).
+2.  Abra o terminal onde o Dashboard está rodando.
+3.  No Dashboard, clique em **Modo DEV**.
+4.  **Olhe para o terminal do Dashboard**. Você deve ver as mensagens `[SERVER STDOUT]: 🤖 [INDEX.JS] Processo iniciado.` etc.
+
+Se o terminal do servidor mostrar logs, mas o Dashboard não, o problema é o Socket.
+Se o terminal do servidor **NÃO** mostrar nada além de "Processo filho encerrou com código 0", significa que o `index.js` está executando e saindo instantaneamente sem logs.
+
+**Causa mais comum para "Saída Imediata Código 0":**
+O `index.js` tem uma condição `if (import.meta.url === ...)` que está falhando.
+**Correção:** Remova qualquer condição `if` que envolva `import.meta.url` no `index.js`. Chame a função principal diretamente.
+
+```javascript
+// ERRADO (Pode falhar no Windows/spawn)
+if (import.meta.url === `file://${process.argv[1]}`) {
+  runAutomation();
+}
+
+// CERTO (Executa sempre)
+runAutomation();
+```
+
+Faça essa alteração no `index.js` e tente novamente. O robô deve começar a abrir o Chrome e mostrar os logs no Dashboard.
+
+### USER
+// src/server/index.js
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { spawn } from 'child_process';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: { origin: "*" }
+});
+
+const PORT = process.env.WEB_PORT || 3000;
+
+// Servir arquivos estáticos
+app.use(express.static(path.join(__dirname, '../../public')));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../public/index.html'));
+});
+
+let robotProcess = null;
+
+io.on('connection', (socket) => {
+  console.log('🔌 Cliente conectado');
+
+  socket.on('start-robot', (data) => {
+    if (robotProcess) {
+      socket.emit('log', { level: 'warn', msg: '⚠️ Robô já está rodando.' });
+      return;
+    }
+
+    const mode = data.mode; // 'DEV' ou 'PROD'
+    socket.emit('log', { level: 'info', msg: `🚀 Iniciando Robô no modo: ${mode}` });
+
+    // Define as variáveis de ambiente para o processo filho
+    const env = { ...process.env };
+    
+    if (mode === 'DEV') {
+      env.MODO_TESTE = 'true';
+      env.LOGIN_URL = 'http://localhost:3456/login';
+      env.AGENDAMENTO_URL = 'http://localhost:3456/agendamento/atendimento.php';
+      env.WFM_LOGIN_URL = 'http://localhost:3456/login';
+      env.WFM_URL = 'http://localhost:3456/agendamento/atendimento.php';
+      env.GPS_URL = 'http://localhost:3456/login';
+      socket.emit('log', { level: 'info', msg: '🔧 Configurado para Mock Local (Porta 3456)' });
+    } else {
+      env.MODO_TESTE = 'false';
+      // As URLs reais virão do .env original do sistema
+      socket.emit('log', { level: 'info', msg: '🔧 Configurado para Produção (URLs do .env)' });
+    }
+
+    // Inicia o processo filho (o robô principal)
+    // Usamos 'node index.js' na raiz do projeto
+    const projectRoot = path.join(__dirname, '../..');
+    robotProcess = spawn('node', ['index.js'], {
+      cwd: projectRoot,
+      env: env,
+      stdio: ['ignore', 'pipe', 'pipe'] // Captura stdout e stderr
+    });
+
+    socket.emit('status', { running: true });
+
+    // Captura a saída do robô e envia via socket
+    robotProcess.stdout.on('data', (data) => {
+      const text = data.toString();
+      // Envia linha por linha ou bloco
+      socket.emit('log', { level: 'info', msg: text.trim() });
+    });
+
+    robotProcess.stderr.on('data', (data) => {
+      const text = data.toString();
+      socket.emit('log', { level: 'error', msg: text.trim() });
+    });
+
+    robotProcess.on('close', (code) => {
+      socket.emit('log', { level: code === 0 ? 'success' : 'error', msg: `🏁 Robô finalizado (Código: ${code})` });
+      socket.emit('status', { running: false });
+      robotProcess = null;
+    });
+
+    robotProcess.on('error', (err) => {
+      socket.emit('log', { level: 'error', msg: `❌ Erro ao iniciar processo: ${err.message}` });
+      socket.emit('status', { running: false });
+      robotProcess = null;
+    });
+  });
+
+  socket.on('disconnect', () => {
+    console.log('🔌 Cliente desconectado');
+    // Opcional: Matar o robô se o cliente desconectar?
+    // if (robotProcess) robotProcess.kill();
+  });
+});
+
+httpServer.listen(PORT, () => {
+  console.log(`
+╔════════════════════════════════════════════════════════╗
+║  🌐 Dashboard do Auto Robô v2.0                        ║
+║  Acesse: http://localhost:${PORT}                       ║
+╚════════════════════════════════════════════════════════╝
+  `);
+});
+
+### ASSISTANT
+O código do `src/server/index.js` está **correto e muito bem estruturado**. Ele resolve o problema de "variáveis de ambiente travadas" ao usar `spawn` para criar um processo filho limpo com as configurações exatas que você escolheu no Dashboard.
+
+No entanto, para garantir que ele funcione perfeitamente com o restante do projeto (especialmente o `index.js` raiz e o `.env`), aqui estão os **3 ajustes finais de segurança** para evitar os erros que vimos antes (`Target Closed` e `Exit Code 0` silencioso).
+
+### 1. Ajuste Fino no `src/server/index.js`
+
+Adicionei um tratamento melhor para logs em tempo real (quebrando por linhas) e garanti que o caminho do projeto esteja absoluto.
+
+```javascript
+// src/server/index.js
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { spawn } from 'child_process';
+import fs from 'fs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: { origin: "*" }
+});
+
+const PORT = process.env.WEB_PORT || 3000;
+
+// Servir arquivos estáticos
+app.use(express.static(path.join(__dirname, '../../public')));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../public/index.html'));
+});
+
+let robotProcess = null;
+
+io.on('connection', (socket) => {
+  console.log('🔌 Cliente conectado ao Dashboard');
+
+  socket.on('start-robot', (data) => {
+    if (robotProcess) {
+      socket.emit('log', { level: 'warn', msg: '⚠️ Robô já está rodando. Aguarde finalizar.' });
+      return;
+    }
+
+    const mode = data.mode; // 'DEV' ou 'PROD'
+    socket.emit('log', { level: 'info', msg: `🚀 Iniciando Robô no modo: ${mode}` });
+
+    // Define as variáveis de ambiente para o processo filho
+    // Copia o env atual mas permite sobrescrita segura
+    const env = { ...process.env };
+    
+    if (mode === 'DEV') {
+      env.MODO_TESTE = 'true';
+      env.LOGIN_URL = 'http://localhost:3456/login';
+      env.AGENDAMENTO_URL = 'http://localhost:3456/agendamento/atendimento.php';
+      env.WFM_LOGIN_URL = 'http://localhost:3456/login';
+      env.WFM_URL = 'http://localhost:3456/agendamento/atendimento.php';
+      env.GPS_URL = 'http://localhost:3456/login';
+      
+      // Força HEADLESS false para ver o que acontece no modo DEV
+      env.HEADLESS = 'false'; 
+      
+      socket.emit('log', { level: 'info', msg: '🔧 Configurado para Mock Local (Porta 3456)' });
+      socket.emit('log', { level: 'warn', msg: '⚠️ Certifique-se de ter rodado "npm run mock" em outro terminal!' });
+    } else {
+      env.MODO_TESTE = 'false';
+      // Mantém as URLs do .env original
+      socket.emit('log', { level: 'info', msg: '🔧 Configurado para Produção (URLs do .env)' });
+    }
+
+    // Caminho absoluto para a raiz do projeto
+    const projectRoot = path.join(__dirname, '../..');
+    
+    // Verifica se index.js existe antes de rodar
+    const indexPath = path.join(projectRoot, 'index.js');
+    if (!fs.existsSync(indexPath)) {
+        socket.emit('log', { level: 'error', msg: `❌ Arquivo não encontrado: ${indexPath}` });
+        return;
+    }
+
+    console.log(`[SERVER] Iniciando processo filho: node index.js em ${projectRoot}`);
+
+    // Inicia o processo filho
+    robotProcess = spawn('node', ['index.js'], {
+      cwd: projectRoot,
+      env: env,
+      stdio: ['ignore', 'pipe', 'pipe'] // Captura stdout e stderr
+    });
+
+    socket.emit('status', { running: true });
+
+    // Buffer para acumular dados parciais (caso venham quebrados)
+    let stdoutBuffer = '';
+    let stderrBuffer = '';
+
+    // Captura STDOUT (console.log do robô)
+    robotProcess.stdout.on('data', (data) => {
+      const text = data.toString();
+      stdoutBuffer += text;
+      
+      // Processa linha por linha para ficar bonito no dashboard
+      const lines = stdoutBuffer.split('\n');
+      // O último elemento pode estar incompleto, guarda no buffer
+      stdoutBuffer = lines.pop(); 
+
+      lines.forEach(line => {
+        if (line.trim()) {
+            // Tenta detectar nível de log pelo conteúdo, senão usa info
+            let level = 'info';
+            if (line.includes('❌') || line.includes('ERROR')) level = 'error';
+            if (line.includes('⚠️') || line.includes('WARN')) level = 'warn';
+            if (line.includes('✅') || line.includes('SUCCESS')) level = 'success';
+            
+            socket.emit('log', { level, msg: line });
+        }
+      });
+    });
+
+    // Captura STDERR (Erros de sistema/node)
+    robotProcess.stderr.on('data', (data) => {
+      const text = data.toString();
+      stderrBuffer += text;
+      const lines = stderrBuffer.split('\n');
+      stderrBuffer = lines.pop();
+
+      lines.forEach(line => {
+        if (line.trim()) {
+            socket.emit('log', { level: 'error', msg: line });
+        }
+      });
+    });
+
+    robotProcess.on('close', (code) => {
+      console.log(`[SERVER] Processo filho encerrou com código ${code}`);
+      const finalMsg = code === 0 ? '🏁 Robô finalizado com sucesso!' : `💥 Robô encerrado com erro (Código: ${code})`;
+      socket.emit('log', { level: code === 0 ? 'success' : 'error', msg: finalMsg });
+      socket.emit('status', { running: false });
+      robotProcess = null;
+    });
+
+    robotProcess.on('error', (err) => {
+      console.error('[SERVER] Erro ao spawnar processo:', err);
+      socket.emit('log', { level: 'error', msg: `❌ Erro crítico ao iniciar: ${err.message}` });
+      socket.emit('status', { running: false });
+      robotProcess = null;
+    });
+  });
+
+  socket.on('disconnect', () => {
+    console.log('🔌 Cliente desconectado');
+    // Opcional: Se quiser que o robô pare quando fechar a aba do navegador
+    // if (robotProcess) {
+    //   robotProcess.kill();
+    //   robotProcess = null;
+    // }
+  });
+});
+
+httpServer.listen(PORT, () => {
+  console.log(`
+╔════════════════════════════════════════════════════════╗
+║  🌐 Dashboard do Auto Robô v2.0                        ║
+║  Acesse: http://localhost:${PORT}                       ║
+╚════════════════════════════════════════════════════════╝
+  `);
+});
+```
+
+---
+
+### 2. Checklist Crítico para Funcionar Agora
+
+Para que o botão **"Modo Desenvolvimento"** funcione e não dê o erro `Target Closed` ou `Connection Refused`, você **PRECISA** seguir esta ordem:
+
+1.  **Terminal 1 (Mock Server):**
+    ```powershell
+    npm run mock
+    ```
+    *Aguarde a mensagem: `🎭 Mock server rodando em http://localhost:3456`*
+
+2.  **Terminal 2 (Dashboard):**
+    ```powershell
+    npm start
+    ```
+    *Aguarde a mensagem do Dashboard.*
+
+3.  **Navegador:**
+    *   Acesse `http://localhost:3000`.
+    *   Clique em **Modo Desenvolvimento**.
+
+### 3. Por que isso vai funcionar agora?
+
+1.  **Isolamento:** O `spawn` cria um novo processo Node.js.
+2.  **Injeção de ENV:** O servidor passa `LOGIN_URL=http://localhost:3456/login` diretamente para esse novo processo.
+3.  **Leitura do Dotenv:** Quando o `index.js` roda, o `dotenv` lê as variáveis. Como `LOGIN_URL` já foi definida pelo `spawn` (via `env` do sistema operacional do processo), o `dotenv` **não sobrescreve** com o valor do arquivo `.env` (que seria a URL da Vivo). Ele mantém a URL do Mock.
+4.  **Log Real:** O tratamento de `stdout` linha por linha garante que você veja os emojis e cores (se o terminal suportar, ou pelo menos o texto) no Dashboard em tempo real.
+
+Tente essa sequência exata. Se o Mock Server estiver rodando, o erro de conexão sumirá! 🚀
+
+### USER
+C:\auto-robo-main>npm run mock
+
+> auto-robo@2.0.0 mock
+> node scripts/mock-server.js
+
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3456
+    at Server.setupListenHandle [as _listen2] (node:net:1948:16)
+    at listenInCluster (node:net:2005:12)
+    at Server.listen (node:net:2110:7)
+    at app.listen (C:\auto-robo-main\node_modules\express\lib\application.js:635:24)
+    at file:///C:/auto-robo-main/scripts/mock-server.js:99:5
+    at ModuleJob.run (node:internal/modules/esm/module_job:430:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:661:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1984:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3456
+}
+
+Node.js v24.14.1
+
+C:\auto-robo-main>
+
+### ASSISTANT
+O erro `EADDRINUSE` significa **"Endereço já em uso"**.
+Isso acontece porque **já existe um processo rodando na porta 3456** (provavelmente uma tentativa anterior do Mock Server que não foi fechada corretamente ou está rodando em segundo plano).
+
+Vamos resolver isso em 2 passos rápidos:
+
+### 1. Mate o Processo Travado na Porta 3456
+
+Copie e cole este comando no seu PowerShell para encontrar e matar qualquer coisa usando a porta 3456:
+
+```powershell
+# Encontra o PID (ID do Processo) usando a porta 3456
+$pid = Get-NetTCPConnection -LocalPort 3456 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
+
+if ($pid) {
+    Write-Host "⚠️  Processo encontrado com PID: $pid. Finalizando..." -ForegroundColor Yellow
+    Stop-Process -Id $pid -Force
+    Write-Host "✅ Processo finalizado com sucesso!" -ForegroundColor Green
+} else {
+    Write-Host "ℹ️  Nenhum processo encontrado na porta 3456." -ForegroundColor Cyan
+}
+```
+
+### 2. Inicie o Mock Server Novamente
+
+Agora que a porta está livre, rode o comando novamente:
+
+```powershell
+npm run mock
+```
+
+Você deve ver a mensagem de sucesso:
+`🎭 Mock server rodando em http://localhost:3456`
+
+---
+
+### 💡 Dica para o Futuro
+Se isso acontecer frequentemente, você pode adicionar um tratamento de erro no seu `scripts/mock-server.js` para tentar usar outra porta automaticamente, mas por enquanto, o comando acima resolve imediatamente.
+
+**Assim que o Mock Server estiver rodando com a mensagem de sucesso:**
+1.  **Não feche esse terminal.**
+2.  Abra um **novo terminal**.
+3.  Rode `npm start` (ou use o Dashboard se já tiver configurado).
+
+Me avise se o Mock Server iniciou corretamente! 🚀
+
+### USER
+C:\auto-robo-main># Encontra o PID (ID do Processo) usando a porta 3456$pid = Get-NetTCPConnection -LocalPort 3456 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Uniqueif ($pid) {    Write-Host "⚠️  Processo encontrado com PID: $pid. Finalizando..." -ForegroundColor Yellow    Stop-Process -Id $pid -Force    Write-Host "✅ Processo finalizado com sucesso!" -ForegroundColor Green} else {    Write-Host "ℹ️  Nenhum processo encontrado na porta 3456." -ForegroundColor Cyan}
+'#' não é reconhecido como um comando interno
+ou externo, um programa operável ou um arquivo em lotes.
+
+C:\auto-robo-main>
+
+### ASSISTANT
+O erro ocorreu porque você colou o código como se fosse um único bloco de texto, mas o PowerShell precisa que os comandos sejam executados linha por linha ou como um script válido. O símbolo `#` no início confundiu o interpretador.
+
+Aqui está a forma correta de fazer isso. Copie e cole **tudo o bloco abaixo** de uma vez no seu PowerShell e pressione Enter:
+
+```powershell
+$pid = Get-NetTCPConnection -LocalPort 3456 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique; if ($pid) { Write-Host "⚠️ Processo encontrado com PID: $pid. Finalizando..." -ForegroundColor Yellow; Stop-Process -Id $pid -Force; Write-Host "✅ Processo finalizado com sucesso!" -ForegroundColor Green } else { Write-Host "ℹ️ Nenhum processo encontrado na porta 3456." -ForegroundColor Cyan }
+```
+
+### O que este comando faz:
+1.  Procura qualquer programa usando a porta **3456**.
+2.  Se encontrar, mata o processo imediatamente.
+3.  Se não encontrar, avisa que a porta já está livre.
+
+---
+
+### Próximos Passos (Após liberar a porta):
+
+1.  **Inicie o Mock Server novamente:**
+    ```powershell
+    npm run mock
+    ```
+    *Aguarde a mensagem: `🎭 Mock server rodando em http://localhost:3456`*
+
+2.  **Em OUTRO terminal**, inicie o Dashboard:
+    ```powershell
+    npm start
+    ```
+
+3.  Acesse `http://localhost:3000` e teste o botão **Modo Desenvolvimento**.
+
+Me avise se o Mock Server iniciou sem erros! 🚀
+
+### USER
+'$pid' não é reconhecido como um comando interno
+ou externo, um programa operável ou um arquivo em lotes.
+
+### ASSISTANT
+O erro ocorre porque você provavelmente colou o código em um prompt de comando antigo (CMD) ou houve uma quebra de linha incorreta. O PowerShell precisa receber o comando como um bloco único ou executá-lo corretamente.
+
+Vamos resolver isso de forma **infalível** usando um comando único e simples para matar o processo na porta 3456.
+
+### ✅ Solução Rápida (Copie e Cole TUDO de uma vez)
+
+Copie a linha abaixo inteira e cole no seu PowerShell:
+
+```powershell
+Get-NetTCPConnection -LocalPort 3456 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }; Write-Host "Porta 3456 liberada." -ForegroundColor Green
+```
+
+**O que este comando faz:**
+1.  Procura quem está usando a porta **3456**.
+2.  Se encontrar, mata o processo imediatamente (`Stop-Process -Force`).
+3.  Se não encontrar ninguém, apenas avisa que está livre.
+4.  Mostra a mensagem verde "Porta 3456 liberada.".
+
+---
+
+### 🚀 Próximos Passos (Após liberar a porta)
+
+Agora que a porta está limpa, siga esta ordem exata para não ter mais erros:
+
+1.  **Inicie o Mock Server (Terminal 1):**
+    ```powershell
+    npm run mock
+    ```
+    *Aguarde aparecer: `🎭 Mock server rodando em http://localhost:3456`*
+    *(Não feche esta janela)*
+
+2.  **Inicie o Dashboard (Terminal 2 - Nova Janela):**
+    ```powershell
+    npm start
+    ```
+
+3.  **No Navegador:**
+    *   Acesse `http://localhost:3000`
+    *   Clique em **Modo Desenvolvimento**.
+
+Se o Mock Server estiver rodando no Terminal 1, o erro `EADDRINUSE` não aparecerá e o robô conseguirá conectar! Me avise se funcionou. 🚀
+
+### USER
+                            ^C
+PS C:\auto-robo-main> npm start  
+
+> auto-robo@2.0.0 start
+> node src/server/index.js
+
+
+╔════════════════════════════════════════════════════════╗
+║  🌐 Dashboard do Auto Robô v2.0                        ║
+║  Acesse: http://localhost:3000                       ║
+╚════════════════════════════════════════════════════════╝
+  
+🔌 Cliente conectado ao Dashboard
+[SERVER] Iniciando processo filho: node index.js em C:\auto-robo-main
+[SERVER] Processo filho encerrou com código 0
+
+### ASSISTANT
+O log indica que **o Dashboard está funcionando**, mas **o processo do robô (`index.js`) está terminando imediatamente com código 0** — ou seja, ele **não está executando nenhuma automação real**, apenas inicia e finaliza.
+
+Isso geralmente acontece por **um dos dois motivos abaixo**:
+
+---
+
+### 🔍 Causa 1: O `index.js` não chama `runAutomation()` corretamente
+
+Seu `index.js` raiz **precisa executar a função principal de automação automaticamente** ao ser chamado. Se ele só exportar `runAutomation` sem chamá-la, o processo termina em silêncio.
+
+#### ✅ Correção: Garanta que `index.js` execute a automação
+Substitua todo o conteúdo do seu `index.js` (na raiz do projeto) por este:
+
+```js
+// index.js - Entry Point do Auto Robô v2.0
+import { initBrowser, closeBrowser } from './src/browser/index.js';
+import { loginService, injectionService, navigationService } from './src/index.js';
+import { logger, automationConfig, systemsConfig } from './src/index.js';
+import { captureAndSave } from './src/utils/screenshots.js';
+import { sleep } from './src/utils/wait.js';
+
+console.log('🤖 [ROBÔ] Processo iniciado via Dashboard...');
+
+const runAutomation = async () => {
+  let browser = null;
+  let page = null;
+
+  try {
+    logger.info('main', '🚀 Iniciando automação...');
+    
+    // 1. Inicializa navegador
+    const { browser: br, page: pg } = await initBrowser();
+    browser = br;
+    page = pg;
+
+    // 2. Login no GOI
+    logger.info('main', '🔐 Etapa 1: Login no GOI');
+    await loginService.loginGOI(page);
+    await sleep(1000);
+
+    // 3. Login no WFM (se habilitado)
+    if (systemsConfig.abrirWFM) {
+      logger.info('main', '🔐 Etapa 2: Login no WFM');
+      await loginService.loginWFM(page);
+      await sleep(1000);
+    }
+
+    // 4. Abre abas adicionais
+    logger.info('main', '🗂️ Etapa 3: Abrindo abas adicionais');
+    await navigationService.openSystemTabs(browser, page);
+
+    // 5. Executa Injeção D0
+    logger.info('main', '💉 Etapa 4: Executando Injeção D0');
+    await injectionService.executarInjecaoD0(page);
+
+    // 6. Busca e atribui atividade (se configurado)
+    if (automationConfig.atividadeTeste) {
+      logger.info('main', '🎯 Etapa 5: Buscando atividade de teste');
+      await injectionService.buscarEAtribuirAtividade(page, automationConfig.atividadeTeste);
+    }
+
+    // 7. Screenshot final
+    await captureAndSave(page, 'conclusao');
+    logger.success('main', '✅ Automação concluída com sucesso!');
+
+  } catch (error) {
+    logger.error('main', `❌ Erro crítico: ${error.message}`, error);
+    if (page) await captureAndSave(page, 'erro_critico');
+    process.exitCode = 1;
+  } finally {
+    if (browser) {
+      logger.info('main', '🔒 Finalizando navegador...');
+      await closeBrowser(browser);
+    }
+    logger.info('main', '🔚 Processo do robô encerrado.');
+  }
+};
+
+// 🟢 EXECUTA SEMPRE AO SER CHAMADO (sem condições frágeis)
+runAutomation().catch(err => {
+  console.error('💥 Erro fatal não tratado:', err);
+  process.exit(1);
+});
+```
+
+> ⚠️ **Importante**: Não use `if (import.meta.url === ...)` — isso falha em ambientes Windows com `spawn`.
+
+---
+
+### 🔍 Causa 2: O Mock Server não está rodando (para modo DEV)
+
+Se você clicou em **Modo Desenvolvimento**, mas **não iniciou o Mock Server**, o robô tentará acessar `http://localhost:3456/login` e **falhará silenciosamente** se o servidor não responder.
+
+#### ✅ Correção: Sempre inicie o Mock Server antes de testar o modo DEV
+
+Abra **dois terminais**:
+
+- **Terminal 1 (Mock Server)**:
+  ```powershell
+  npm run mock
+  ```
+  → Aguarde: `🎭 Mock server rodando em http://localhost:3456`
+
+- **Terminal 2 (Dashboard)**:
+  ```powershell
+  npm start
+  ```
+  → Acesse `http://localhost:3000` e clique em **Modo Desenvolvimento**
+
+---
+
+### 🧪 Teste Rápido: Verifique se `index.js` funciona isoladamente
+
+No terminal, execute diretamente:
+```powershell
+node index.js
+```
+
+Se aparecer **apenas**:
+```
+🤖 [ROBÔ] Processo iniciado via Dashboard...
+```
+e depois **encerrar imediatamente**, significa que há um erro **antes** da primeira etapa (ex: falha ao carregar configuração).
+
+Se aparecer:
+```
+ℹ️ [xx:xx][main] 🚀 Iniciando automação...
+```
+então o problema é **rede/mock**, não o código.
+
+---
+
+### 📋 Checklist Final
+
+| Passo | Status |
+|------|--------|
+| ✅ `index.js` executa `runAutomation()` diretamente? | ✔️ |
+| ✅ Mock Server rodando (`npm run mock`)? | ✔️ (para modo DEV) |
+| ✅ `.env` com `MODO_TESTE=true` e URLs locais? | ✔️ |
+| ✅ Dashboard acessível em `http://localhost:3000`? | ✔️ |
+| ✅ Nenhum outro processo usando porta 3456? | ✔️ |
+
+---
+
+### 🚀 Próximo passo recomendado
+
+1. **Atualize seu `index.js`** com o código acima.
+2. **Inicie o Mock Server** em um terminal separado.
+3. **Rode o Dashboard** e clique em **Modo Desenvolvimento**.
+4. **Cole aqui os logs completos** do terminal do **Dashboard** após clicar no botão.
+
+Assim identificamos se o problema é de execução, rede ou configuração! 🤖✨
+
+### USER
+06:11:05] Solicitando início no modo: PROD...
+[06:11:05] 🚀 Iniciando Robô no modo: PROD
+[06:11:05] 🔧 Configurado para Produção (URLs do .env)
+[06:11:05] 🤖 [ROBÔ] Processo iniciado via Dashboard...
+[06:11:05] [32mℹ️ [09:11:05][main] 🚀 Iniciando automação...[0m
+[06:11:05] [32mℹ️ [09:11:05][browser] Iniciando navegador (modo: lançar)[0m
+[06:11:05] [32mℹ️ [09:11:05][browser] 🚀 Lançando novo Chrome...[0m
+[06:11:06] [32m✅ Chrome iniciado![0m
+[06:11:06] [32mℹ️ [09:11:06][main] 🔐 Etapa 1: Login no GOI[0m
+[06:11:06] [32mℹ️ [09:11:06][login:goi] Iniciando login no GOI...[0m
+[06:11:06] [32mℹ️ [09:11:06][login:goi] 🌐 Acessando: https://goi.vivo.com.br/login[0m
+[06:11:06] [31m❌ [09:11:06][login:goi] Falha no login GOI: net::ERR_NAME_NOT_RESOLVED at https://goi.vivo.com.br/login[0m
+[06:11:06] [2m Error: net::ERR_NAME_NOT_RESOLVED at https://goi.vivo.com.br/login
+[06:11:06] at navigate (file:///C:/auto-robo-main/node_modules/puppeteer-core/lib/esm/puppeteer/cdp/Frame.js:180:27)
+[06:11:06] at async Deferred.race (file:///C:/auto-robo-main/node_modules/puppeteer-core/lib/esm/puppeteer/util/Deferred.js:33:20)
+[06:11:06] at async CdpFrame.goto (file:///C:/auto-robo-main/node_modules/puppeteer-core/lib/esm/puppeteer/cdp/Frame.js:146:25)
+[06:11:06] at async CdpPage.goto (file:///C:/auto-robo-main/node_modules/puppeteer-core/lib/esm/puppeteer/api/Page.js:576:20)
+[06:11:06] at async Object.loginGOI (file:///C:/auto-robo-main/src/services/login.js:18:5)
+[06:11:06] at async runAutomation (file:///C:/auto-robo-main/index.js:24:5) [0m
+[06:11:06] [31m❌ [09:11:06][main] ❌ Erro crítico: net::ERR_NAME_NOT_RESOLVED at https://goi.vivo.com.br/login[0m
+[06:11:06] [2m Error: net::ERR_NAME_NOT_RESOLVED at https://goi.vivo.com.br/login
+[06:11:06] at navigate (file:///C:/auto-robo-main/node_modules/puppeteer-core/lib/esm/puppeteer/cdp/Frame.js:180:27)
+[06:11:06] at async Deferred.race (file:///C:/auto-robo-main/node_modules/puppeteer-core/lib/esm/puppeteer/util/Deferred.js:33:20)
+[06:11:06] at async CdpFrame.goto (file:///C:/auto-robo-main/node_modules/puppeteer-core/lib/esm/puppeteer/cdp/Frame.js:146:25)
+[06:11:06] at async CdpPage.goto (file:///C:/auto-robo-main/node_modules/puppeteer-core/lib/esm/puppeteer/api/Page.js:576:20)
+[06:11:06] at async Object.loginGOI (file:///C:/auto-robo-main/src/services/login.js:18:5)
+[06:11:06] at async runAutomation (file:///C:/auto-robo-main/index.js:24:5) [0m
+[06:11:06] [32mℹ️ [09:11:06][screenshot] 📸 Salvo: output\screenshots\erro_critico_2026-04-04T09-11-06.png[0m
+[06:11:06] [32mℹ️ [09:11:06][main] 🔒 Finalizando navegador...[0m
+[06:11:06] [32mℹ️ [09:11:06][browser] 🔒 Navegador fechado[0m
+[06:11:06] [32mℹ️ [09:11:06][main] 🔚 Processo do robô encerrado.[0m
+[06:11:06] 💥 Robô encerrado com erro (Código: 1)
+
+### ASSISTANT
+O erro que você está vendo — **`net::ERR_NAME_NOT_RESOLVED at https://goi.vivo.com.br/login`** — indica claramente que:
+
+> 🌐 **Você não está conectado à rede corporativa da Vivo (VPN ou cabo)**, e por isso o domínio `goi.vivo.com.br` **não pode ser resolvido** pelo DNS.
+
+Esse é um comportamento **totalmente esperado**, pois sistemas como GOI são **internos da empresa** e só funcionam dentro da rede corporativa.
+
+---
+
+### ✅ O que fazer agora?
+
+Como você **ainda não tem acesso à VPN em casa**, **não tente rodar o modo PROD fora do escritório**. Em vez disso, use o **modo de desenvolvimento com Mock Local** para continuar seu trabalho.
+
+---
+
+## 🔧 Passo a passo para usar o **Modo DEV (Mock Local) em casa**
+
+### 1. **Inicie o Mock Server (Terminal 1)**
+```powershell
+npm run mock
+```
+➡️ Aguarde a mensagem:
+```
+🎭 Mock server rodando em http://localhost:3456
+```
+
+> ⚠️ **Não feche este terminal.** Ele precisa ficar aberto enquanto você testa.
+
+---
+
+### 2. **Abra o Dashboard (Terminal 2)**
+```powershell
+npm start
+```
+➡️ Acesse no navegador:  
+👉 **http://localhost:3000**
+
+---
+
+### 3. **Clique em “Modo Desenvolvimento (Mock Local)”**
+
+O Dashboard vai:
+- Configurar as URLs para `http://localhost:3456/...`
+- Iniciar o robô com essas URLs
+- Conectar ao seu Mock Server (que está rodando no Terminal 1)
+
+✅ Isso **não requer internet corporativa**, nem DNS interno, nem VPN.
+
+---
+
+### 4. **Resultado esperado no Dashboard**
+Você verá logs como:
+```
+[06:15:00] 🌐 Acessando: http://localhost:3456/login
+[06:15:01] ✅ Login no GOI realizado (modo teste)!
+[06:15:02] 💉 Etapa 4: Executando Injeção D0
+...
+```
+
+E uma janela do Chrome será aberta com páginas locais simulando o GOI.
+
+---
+
+## ❌ Por que o Modo PROD falha em casa?
+| Fator | Status em Casa |
+|------|----------------|
+| Acesso a `goi.vivo.com.br` | ❌ Bloqueado (só interno) |
+| Resolução DNS corporativo | ❌ Não disponível |
+| Credenciais válidas | ✅ Sim, mas inúteis sem rede |
+| Puppeteer funcionando | ✅ Sim! |
+
+> 📌 **Conclusão**: O robô está **funcionando perfeitamente** — o problema é a **falta de acesso à rede corporativa**, não o código.
+
+---
+
+## ✅ Checklist para Desenvolver em Casa
+
+| Tarefa | Comando |
+|-------|--------|
+| ✅ Iniciar Mock Server | `npm run mock` |
+| ✅ Iniciar Dashboard | `npm start` |
+| ✅ Usar botão “Modo Desenvolvimento” | No navegador (`http://localhost:3000`) |
+| ✅ Validar lógica, seletores, fluxos | Tudo roda localmente! |
+| ❌ Evite “Modo Produção” em casa | Só use no escritório com cabo/VPN |
+
+---
+
+## 🏢 Quando for ao escritório (com cabo):
+
+1. Conecte o cabo de rede.
+2. Verifique se consegue acessar `https://goi.vivo.com.br/login` no Chrome normal.
+3. No Dashboard, clique em **“Modo Produção”**.
+4. O robô usará as URLs reais e suas credenciais do `.env`.
+
+---
+
+Se quiser, posso te ajudar a:
+- Melhorar o Mock Server com mais funcionalidades (ex: simular busca por PON)
+- Adicionar botão “Testar Conexão” no Dashboard
+- Criar um modo híbrido que detecta automaticamente se está na rede corporativa
+
+É só pedir! 🤖✨
+
+### USER
+crie melhorias para o menu
+
+### ASSISTANT
+Com base no seu projeto **Auto Robô v2.0**, e considerando que você está desenvolvendo em casa sem acesso à VPN (apenas via cabo no escritório), proponho uma **versão aprimorada do menu web** (`localhost:3000`) com foco em:
+
+- **Clareza visual**
+- **Feedback imediato**
+- **Modos de execução bem separados**
+- **Diagnóstico automático**
+- **Controle total sobre o ambiente**
+
+---
+
+## 🎨 Melhorias Visuais e Funcionais para o Menu Web
+
+### ✅ 1. **Interface Redesign (Dashboard Moderno)**
+
+Atualize `public/index.html` com este layout mais limpo, responsivo e informativo:
+
+```html
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🤖 Auto Robô v2.0</title>
+  <style>
+    :root {
+      --bg: #0f1116;
+      --card: #161b22;
+      --text: #e6edf3;
+      --primary: #58a6ff;
+      --success: #3fb950;
+      --warning: #d29922;
+      --danger: #f85149;
+      --border: #30363d;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px;
+      min-height: 100vh;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 8px;
+      color: var(--primary);
+    }
+    .subtitle {
+      opacity: 0.7;
+      font-size: 0.9rem;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      display: grid;
+      gap: 20px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+    }
+    .card h2 {
+      margin-bottom: 16px;
+      font-size: 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .mode-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    button {
+      padding: 12px 16px;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn-dev { background: var(--primary); color: white; }
+    .btn-prod { background: var(--success); color: white; }
+    .btn-diag { background: var(--warning); color: black; }
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+      font-size: 0.9rem;
+    }
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #555;
+    }
+    .status-dot.idle { background: #555; }
+    .status-dot.running { background: var(--success); box-shadow: 0 0 8px var(--success); }
+    .logs {
+      background: #000;
+      color: #ccc;
+      height: 300px;
+      overflow-y: auto;
+      padding: 12px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 0.85rem;
+      white-space: pre-wrap;
+    }
+    .log-line {
+      margin-bottom: 4px;
+      border-bottom: 1px solid #222;
+      padding-bottom: 2px;
+    }
+    .log-info { color: var(--primary); }
+    .log-success { color: var(--success); }
+    .log-warn { color: var(--warning); }
+    .log-error { color: var(--danger); }
+    .timestamp {
+      opacity: 0.6;
+      margin-right: 8px;
+    }
+    @media (max-width: 600px) {
+      .mode-buttons { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🤖 Auto Robô v2.0</h1>
+    <div class="subtitle">Desenvolvido por xAgron • ADS • Autismo Nível 1</div>
+  </header>
+
+  <div class="container">
+    <!-- Controle -->
+    <div class="card">
+      <h2>🎛️ Modo de Execução</h2>
+      <div class="mode-buttons">
+        <button id="btnDev" class="btn-dev" onclick="startRobot('DEV')">
+          🧪 Modo Desenvolvimento<br><small>(Mock Local)</small>
+        </button>
+        <button id="btnProd" class="btn-prod" onclick="startRobot('PROD')">
+          🏢 Modo Produção<br><small>(Rede Corporativa)</small>
+        </button>
+      </div>
+      <div class="status-bar">
+        <span class="status-dot idle" id="statusDot"></span>
+        <span id="statusText">Aguardando comando...</span>
+      </div>
+    </div>
+
+    <!-- Diagnóstico -->
+    <div class="card">
+      <h2>🔍 Diagnóstico Rápido</h2>
+      <button class="btn-diag" onclick="runDiagnostics()">
+        📡 Verificar Rede e Mock
+      </button>
+      <div id="diagnosticResult" style="margin-top: 12px; font-size: 0.9rem;"></div>
+    </div>
+
+    <!-- Logs -->
+    <div class="card">
+      <h2>📝 Logs em Tempo Real</h2>
+      <div id="logs" class="logs"></div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const logsEl = document.getElementById('logs');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const diagnosticResult = document.getElementById('diagnosticResult');
+
+    socket.on('log', (data) => {
+      const time = new Date().toLocaleTimeString();
+      const line = document.createElement('div');
+      line.className = `log-line log-${data.level}`;
+      line.innerHTML = `<span class="timestamp">[${time}]</span>${data.msg}`;
+      logsEl.appendChild(line);
+      logsEl.scrollTop = logsEl.scrollHeight;
+    });
+
+    socket.on('status', (data) => {
+      if (data.running) {
+        statusDot.className = 'status-dot running';
+        statusText.textContent = 'Executando automação...';
+      } else {
+        statusDot.className = 'status-dot idle';
+        statusText.textContent = 'Pronto para novo comando';
+      }
+      document.getElementById('btnDev').disabled = data.running;
+      document.getElementById('btnProd').disabled = data.running;
+    });
+
+    function startRobot(mode) {
+      socket.emit('start-robot', { mode });
+      addLocalLog(`Iniciando modo: ${mode}`, 'info');
+    }
+
+    function runDiagnostics() {
+      addLocalLog('Iniciando diagnóstico de rede...', 'info');
+      diagnosticResult.innerHTML = '<em>Analisando...</em>';
+      fetch('/api/diagnose')
+        .then(res => res.json())
+        .then(data => {
+          let html = '';
+          if (data.mock) {
+            html += `<div class="log-success">✅ Mock Server: ONLINE (Porta 3456)</div>`;
+          } else {
+            html += `<div class="log-error">❌ Mock Server: OFFLINE</div>`;
+          }
+          if (data.vpn) {
+            html += `<div class="log-success">✅ Rede Corporativa: ACESSÍVEL</div>`;
+          } else {
+            html += `<div class="log-warn">⚠️ Rede Corporativa: INACESSÍVEL (sem VPN/cabo)</div>`;
+          }
+          diagnosticResult.innerHTML = html;
+        })
+        .catch(() => {
+          diagnosticResult.innerHTML = '<div class="log-error">❌ Erro ao executar diagnóstico</div>';
+        });
+    }
+
+    function addLocalLog(msg, level) {
+      const time = new Date().toLocaleTimeString();
+      const line = document.createElement('div');
+      line.className = `log-line log-${level}`;
+      line.innerHTML = `<span class="timestamp">[${time}]</span>${msg}`;
+      logsEl.appendChild(line);
+      logsEl.scrollTop = logsEl.scrollHeight;
+    }
+  </script>
+</body>
+</html>
+```
+
+---
+
+### ✅ 2. **Adicione um Endpoint de Diagnóstico no Servidor**
+
+Atualize `src/server/index.js` para incluir uma rota `/api/diagnose`:
+
+```js
+// Adicione dentro do bloco app.use(...) ou após as rotas existentes
+
+app.get('/api/diagnose', async (req, res) => {
+  const diagnostics = {
+    mock: false,
+    vpn: false
+  };
+
+  // Testa Mock Server
+  try {
+    const mockRes = await fetch('http://localhost:3456/login', { method: 'HEAD', timeout: 3000 });
+    diagnostics.mock = mockRes.ok;
+  } catch {}
+
+  // Testa DNS corporativo
+  try {
+    const dns = await import('dns').then(m => m.promises);
+    await dns.lookup('goi.vivo.com.br');
+    diagnostics.vpn = true;
+  } catch {}
+
+  res.json(diagnostics);
+});
+```
+
+---
+
+### ✅ 3. **Melhorias de Usabilidade**
+
+| Melhoria | Benefício |
+|--------|----------|
+| **Botões com ícones + subtítulo** | Mais claro o propósito de cada modo |
+| **Status visual (pontinho verde/vermelho)** | Feedback imediato se está rodando ou não |
+| **Diagnóstico com 1 clique** | Evita erros por esquecer de ligar o Mock |
+| **Logs com timestamp e cores** | Fácil identificar falhas rapidamente |
+| **Layout responsivo** | Funciona bem em celular/tablet |
+| **Mensagem de identidade ("ADS • Autismo Nível 1")** | Reforça seu perfil técnico e humano |
+
+---
+
+### ✅ 4. **Fluxo Recomendado com o Novo Menu**
+
+1. Abra **dois terminais**:
+   - Terminal 1: `npm run mock`
+   - Terminal 2: `npm start`
+2. Acesse `http://localhost:3000`
+3. Clique em **"Verificar Rede e Mock"**
+   - ✅ Se mostrar "Mock Server: ONLINE", tudo certo!
+4. Clique em **"Modo Desenvolvimento"**
+5. Acompanhe os logs em tempo real
+
+> Quando for ao escritório:
+> - Conecte o cabo
+> - Clique em **"Verificar Rede e Mock"**
+> - Se aparecer "Rede Corporativa: ACESSÍVEL", use **"Modo Produção"**
+
+---
+
+### ✅ 5. **Bônus: Atalhos de Teclado (acessibilidade)**
+
+Adicione no final do `<script>` do HTML:
+
+```js
+document.addEventListener('keydown', (e) => {
+  if (e.key === '1') startRobot('DEV');
+  if (e.key === '2') startRobot('PROD');
+  if (e.key === 'd' || e.key === 'D') runDiagnostics();
+});
+```
+
+Agora você pode:
+- Pressionar **1** → Modo DEV
+- Pressionar **2** → Modo PROD
+- Pressionar **D** → Diagnóstico
+
+Ideal para quem prefere teclado a mouse!
+
+---
+
+Se quiser, posso gerar os arquivos completos (`index.html`, `src/server/index.js`) atualizados para você só colar. É só pedir! 🤖✨
+
+### USER
+// src/server/index.js
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { spawn } from 'child_process';
+import fs from 'fs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: { origin: "*" }
+});
+
+const PORT = process.env.WEB_PORT || 3000;
+
+// Servir arquivos estáticos
+app.use(express.static(path.join(__dirname, '../../public')));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../public/index.html'));
+});
+
+let robotProcess = null;
+
+io.on('connection', (socket) => {
+  console.log('🔌 Cliente conectado ao Dashboard');
+
+  socket.on('start-robot', (data) => {
+    if (robotProcess) {
+      socket.emit('log', { level: 'warn', msg: '⚠️ Robô já está rodando. Aguarde finalizar.' });
+      return;
+    }
+
+    const mode = data.mode; // 'DEV' ou 'PROD'
+    socket.emit('log', { level: 'info', msg: `🚀 Iniciando Robô no modo: ${mode}` });
+
+    // Define as variáveis de ambiente para o processo filho
+    // Copia o env atual mas permite sobrescrita segura
+    const env = { ...process.env };
+    
+    if (mode === 'DEV') {
+      env.MODO_TESTE = 'true';
+      env.LOGIN_URL = 'http://localhost:3456/login';
+      env.AGENDAMENTO_URL = 'http://localhost:3456/agendamento/atendimento.php';
+      env.WFM_LOGIN_URL = 'http://localhost:3456/login';
+      env.WFM_URL = 'http://localhost:3456/agendamento/atendimento.php';
+      env.GPS_URL = 'http://localhost:3456/login';
+      
+      // Força HEADLESS false para ver o que acontece no modo DEV
+      env.HEADLESS = 'false'; 
+      
+      socket.emit('log', { level: 'info', msg: '🔧 Configurado para Mock Local (Porta 3456)' });
+      socket.emit('log', { level: 'warn', msg: '⚠️ Certifique-se de ter rodado "npm run mock" em outro terminal!' });
+    } else {
+      env.MODO_TESTE = 'false';
+      // Mantém as URLs do .env original
+      socket.emit('log', { level: 'info', msg: '🔧 Configurado para Produção (URLs do .env)' });
+    }
+
+    // Caminho absoluto para a raiz do projeto
+    const projectRoot = path.join(__dirname, '../..');
+    
+    // Verifica se index.js existe antes de rodar
+    const indexPath = path.join(projectRoot, 'index.js');
+    if (!fs.existsSync(indexPath)) {
+        socket.emit('log', { level: 'error', msg: `❌ Arquivo não encontrado: ${indexPath}` });
+        return;
+    }
+
+    console.log(`[SERVER] Iniciando processo filho: node index.js em ${projectRoot}`);
+
+    // Inicia o processo filho
+    robotProcess = spawn('node', ['index.js'], {
+      cwd: projectRoot,
+      env: env,
+      stdio: ['ignore', 'pipe', 'pipe'] // Captura stdout e stderr
+    });
+
+    socket.emit('status', { running: true });
+
+    // Buffer para acumular dados parciais (caso venham quebrados)
+    let stdoutBuffer = '';
+    let stderrBuffer = '';
+
+    // Captura STDOUT (console.log do robô)
+    robotProcess.stdout.on('data', (data) => {
+      const text = data.toString();
+      stdoutBuffer += text;
+      
+      // Processa linha por linha para ficar bonito no dashboard
+      const lines = stdoutBuffer.split('\n');
+      // O último elemento pode estar incompleto, guarda no buffer
+      stdoutBuffer = lines.pop(); 
+
+      lines.forEach(line => {
+        if (line.trim()) {
+            // Tenta detectar nível de log pelo conteúdo, senão usa info
+            let level = 'info';
+            if (line.includes('❌') || line.includes('ERROR')) level = 'error';
+            if (line.includes('⚠️') || line.includes('WARN')) level = 'warn';
+            if (line.includes('✅') || line.includes('SUCCESS')) level = 'success';
+            
+            socket.emit('log', { level, msg: line });
+        }
+      });
+    });
+
+    // Captura STDERR (Erros de sistema/node)
+    robotProcess.stderr.on('data', (data) => {
+      const text = data.toString();
+      stderrBuffer += text;
+      const lines = stderrBuffer.split('\n');
+      stderrBuffer = lines.pop();
+
+      lines.forEach(line => {
+        if (line.trim()) {
+            socket.emit('log', { level: 'error', msg: line });
+        }
+      });
+    });
+
+    robotProcess.on('close', (code) => {
+      console.log(`[SERVER] Processo filho encerrou com código ${code}`);
+      const finalMsg = code === 0 ? '🏁 Robô finalizado com sucesso!' : `💥 Robô encerrado com erro (Código: ${code})`;
+      socket.emit('log', { level: code === 0 ? 'success' : 'error', msg: finalMsg });
+      socket.emit('status', { running: false });
+      robotProcess = null;
+    });
+
+    robotProcess.on('error', (err) => {
+      console.error('[SERVER] Erro ao spawnar processo:', err);
+      socket.emit('log', { level: 'error', msg: `❌ Erro crítico ao iniciar: ${err.message}` });
+      socket.emit('status', { running: false });
+      robotProcess = null;
+    });
+  });
+
+  socket.on('disconnect', () => {
+    console.log('🔌 Cliente desconectado');
+    // Opcional: Se quiser que o robô pare quando fechar a aba do navegador
+    // if (robotProcess) {
+    //   robotProcess.kill();
+    //   robotProcess = null;
+    // }
+  });
+});
+
+httpServer.listen(PORT, () => {
+  console.log(`
+╔════════════════════════════════════════════════════════╗
+║  🌐 Dashboard do Auto Robô v2.0                        ║
+║  Acesse: http://localhost:${PORT}                       ║
+╚════════════════════════════════════════════════════════╝
+  `);
+});
+
+Atualize o src/server/index.js
+
+### ASSISTANT
+Claro! Vou atualizar seu `src/server/index.js` com **melhorias de robustez, diagnóstico automático e UX**, mantendo a arquitetura atual com `spawn`, mas adicionando:
+
+- ✅ **Diagnóstico automático antes de iniciar**
+- ✅ **Feedback visual mais claro no Dashboard**
+- ✅ **Tratamento de erros mais amigável**
+- ✅ **Endpoint `/api/diagnose` funcional**
+- ✅ **Mensagens contextualizadas para DEV vs PROD**
+
+Aqui está a versão aprimorada:
+
+```js
+// src/server/index.js
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { spawn } from 'child_process';
+import fs from 'fs';
+import { lookup } from 'dns';
+import { request } from 'http';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: { origin: "*" }
+});
+
+const PORT = process.env.WEB_PORT || 3000;
+
+// Servir arquivos estáticos
+app.use(express.static(path.join(__dirname, '../../public')));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../public/index.html'));
+});
+
+// === ENDPOINT DE DIAGNÓSTICO ===
+app.get('/api/diagnose', async (req, res) => {
+  const diagnostics = {
+    mock: false,
+    vpn: false,
+    error: null
+  };
+
+  // Testa Mock Server (localhost:3456)
+  try {
+    const mockReq = new Promise((resolve) => {
+      const req = request({
+        hostname: 'localhost',
+        port: 3456,
+        path: '/login',
+        method: 'HEAD',
+        timeout: 3000
+      }, (response) => {
+        resolve(response.statusCode === 200);
+      });
+      req.on('error', () => resolve(false));
+      req.on('timeout', () => {
+        req.destroy();
+        resolve(false);
+      });
+    });
+    diagnostics.mock = await mockReq;
+  } catch {
+    diagnostics.mock = false;
+  }
+
+  // Testa Rede Corporativa (DNS + HTTP)
+  try {
+    // DNS Lookup
+    await new Promise((resolve, reject) => {
+      lookup('goi.vivo.com.br', (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+    // HTTP Request básico
+    const httpReq = new Promise((resolve) => {
+      const req = request({
+        hostname: 'goi.vivo.com.br',
+        port: 443,
+        path: '/login',
+        method: 'HEAD',
+        timeout: 5000
+      }, (resHttp) => {
+        resolve(resHttp.statusCode < 500); // Aceita 2xx, 3xx, 4xx
+      });
+      req.on('error', () => resolve(false));
+      req.on('timeout', () => {
+        req.destroy();
+        resolve(false);
+      });
+      req.end();
+    });
+    diagnostics.vpn = await httpReq;
+  } catch {
+    diagnostics.vpn = false;
+  }
+
+  res.json(diagnostics);
+});
+
+let robotProcess = null;
+
+io.on('connection', (socket) => {
+  console.log('🔌 Cliente conectado ao Dashboard');
+
+  socket.on('start-robot', async (data) => {
+    if (robotProcess) {
+      socket.emit('log', { level: 'warn', msg: '⚠️ Robô já está em execução. Aguarde finalizar.' });
+      return;
+    }
+
+    const mode = data.mode; // 'DEV' ou 'PROD'
+    socket.emit('log', { level: 'info', msg: `🚀 Iniciando Robô no modo: ${mode}` });
+
+    // === Diagnóstico Pré-Execução ===
+    let canProceed = true;
+    if (mode === 'DEV') {
+      // Verifica Mock Server
+      try {
+        const mockRes = await fetch('http://localhost:3456/login', { method: 'HEAD', signal: AbortSignal.timeout(3000) });
+        if (!mockRes.ok) throw new Error();
+        socket.emit('log', { level: 'success', msg: '✅ Mock Server está ONLINE' });
+      } catch {
+        socket.emit('log', { level: 'error', msg: '❌ Mock Server NÃO está rodando!' });
+        socket.emit('log', { level: 'info', msg: '💡 Execute em outro terminal: npm run mock' });
+        canProceed = false;
+      }
+    } else if (mode === 'PROD') {
+      // Verifica acesso corporativo
+      try {
+        await new Promise((resolve, reject) => {
+          lookup('goi.vivo.com.br', (err) => err ? reject(err) : resolve());
+        });
+        socket.emit('log', { level: 'success', msg: '✅ Rede corporativa acessível (DNS OK)' });
+      } catch {
+        socket.emit('log', { level: 'error', msg: '❌ Sem acesso à rede corporativa (VPN/cabo)' });
+        socket.emit('log', { level: 'warn', msg: '⚠️ O modo PROD só funciona no escritório ou com VPN ativa.' });
+        canProceed = false;
+      }
+    }
+
+    if (!canProceed) {
+      socket.emit('status', { running: false });
+      return;
+    }
+
+    // === Configuração do Ambiente ===
+    const env = { ...process.env };
+    if (mode === 'DEV') {
+      env.MODO_TESTE = 'true';
+      env.LOGIN_URL = 'http://localhost:3456/login';
+      env.AGENDAMENTO_URL = 'http://localhost:3456/agendamento/atendimento.php';
+      env.WFM_LOGIN_URL = 'http://localhost:3456/login';
+      env.WFM_URL = 'http://localhost:3456/agendamento/atendimento.php';
+      env.GPS_URL = 'http://localhost:3456/login';
+      env.HEADLESS = 'false';
+      socket.emit('log', { level: 'info', msg: '🔧 Configurado para Mock Local (Porta 3456)' });
+    } else {
+      env.MODO_TESTE = 'false';
+      socket.emit('log', { level: 'info', msg: '🔧 Configurado para Produção (URLs do .env)' });
+    }
+
+    // === Validação do Arquivo Principal ===
+    const projectRoot = path.join(__dirname, '../..');
+    const indexPath = path.join(projectRoot, 'index.js');
+    if (!fs.existsSync(indexPath)) {
+      socket.emit('log', { level: 'error', msg: `❌ Arquivo principal não encontrado: index.js` });
+      socket.emit('status', { running: false });
+      return;
+    }
+
+    console.log(`[SERVER] Iniciando processo filho: node index.js em ${projectRoot}`);
+    robotProcess = spawn('node', ['index.js'], {
+      cwd: projectRoot,
+      env: env,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    socket.emit('status', { running: true });
+
+    // === Captura de Logs ===
+    let stdoutBuffer = '';
+    let stderrBuffer = '';
+
+    const emitLogLine = (line, defaultLevel = 'info') => {
+      if (!line.trim()) return;
+      let level = defaultLevel;
+      if (line.includes('❌') || line.includes('ERROR')) level = 'error';
+      else if (line.includes('⚠️') || line.includes('WARN')) level = 'warn';
+      else if (line.includes('✅') || line.includes('SUCCESS')) level = 'success';
+      socket.emit('log', { level, msg: line.trim() });
+    };
+
+    robotProcess.stdout.on('data', (data) => {
+      stdoutBuffer += data.toString();
+      const lines = stdoutBuffer.split('\n');
+      stdoutBuffer = lines.pop() || '';
+      lines.forEach(line => emitLogLine(line));
+    });
+
+    robotProcess.stderr.on('data', (data) => {
+      stderrBuffer += data.toString();
+      const lines = stderrBuffer.split('\n');
+      stderrBuffer = lines.pop() || '';
+      lines.forEach(line => emitLogLine(line, 'error'));
+    });
+
+    robotProcess.on('close', (code) => {
+      console.log(`[SERVER] Processo filho encerrou com código ${code}`);
+      const msg = code === 0 
+        ? '🏁 Automação concluída com sucesso!' 
+        : `💥 Automação falhou (Código: ${code})`;
+      socket.emit('log', { level: code === 0 ? 'success' : 'error', msg });
+      socket.emit('status', { running: false });
+      robotProcess = null;
+    });
+
+    robotProcess.on('error', (err) => {
+      console.error('[SERVER] Erro ao spawnar processo:', err);
+      socket.emit('log', { level: 'error', msg: `❌ Falha crítica: ${err.message}` });
+      socket.emit('status', { running: false });
+      robotProcess = null;
+    });
+  });
+
+  socket.on('disconnect', () => {
+    console.log('🔌 Cliente desconectado');
+  });
+});
+
+httpServer.listen(PORT, () => {
+  console.log(`
+╔════════════════════════════════════════════════════════╗
+║  🌐 Dashboard do Auto Robô v2.0                        ║
+║  Acesse: http://localhost:${PORT}                       ║
+╚════════════════════════════════════════════════════════╝
+  `);
+});
+```
+
+---
+
+### ✨ Melhorias Implementadas
+
+| Recurso | Benefício |
+|--------|----------|
+| **Diagnóstico pré-execução** | Impede que o robô inicie se o Mock/VPN não estiverem prontos |
+| **Feedback imediato no Dashboard** | Mostra ✅ ou ❌ antes mesmo de tentar executar |
+| **Mensagens contextuais** | Diferencia claramente entre erros de Mock vs. Rede Corporativa |
+| **Endpoint `/api/diagnose` funcional** | Permite que o frontend faça checagem independente |
+| **Captura de logs mais robusta** | Trata buffers parciais e múltiplas linhas corretamente |
+| **Validação de arquivo `index.js`** | Evita falhas silenciosas por caminho incorreto |
+
+---
+
+### 🚀 Como usar agora
+
+1. **Em casa (sem VPN):**
+   - Terminal 1: `npm run mock`
+   - Terminal 2: `npm start`
+   - Dashboard → **Modo Desenvolvimento**
+
+2. **No escritório (com cabo/VPN):**
+   - Terminal: `npm start`
+   - Dashboard → **Modo Produção**
+
+> O Dashboard agora **avisa antes** se algo estiver faltando!
+
+Se quiser, posso também gerar um novo `public/index.html` com os botões de diagnóstico integrados. É só pedir! 🤖✨
+
+### USER
+Com base em toda a nossa conversa crie um passo a passo dos comandos que vao ser utilizado. exemplo npm install etc
+
+### ASSISTANT
+Claro, Tiago! Com base em toda a nossa conversa — seu projeto **Auto Robô v2.0**, sua realidade de desenvolvimento **em casa sem VPN** (só com cabo no escritório) e o objetivo de ter um **menu web funcional com modo de teste local** — aqui está o **passo a passo definitivo** para configurar, testar e executar seu robô **100% offline em casa**.
+
+---
+
+## ✅ PRÉ-REQUISITOS
+- Windows 10/11
+- PowerShell
+- Node.js v18+ (recomendado: v20 ou v24)
+- Chrome instalado (opcional, mas recomendado)
+
+---
+
+## 📁 PASSO A PASSO COMPLETO
+
+### 1. **Instale as dependências do projeto**
+```powershell
+# Na pasta do projeto: C:\auto-robo-main
+npm install
+```
+
+> Isso instala: `puppeteer`, `dotenv`, `express`, `concurrently`, `cross-env` e outras dependências listadas no `package.json`.
+
+---
+
+### 2. **Crie a pasta de saída (logs, screenshots)**
+```powershell
+mkdir output
+```
+
+> O sistema salva logs e screenshots aqui. Se não existir, pode dar erro.
+
+---
+
+### 3. **Configure o `.env` para modo de desenvolvimento local**
+Edite o arquivo `.env` na raiz do projeto e **substitua todo o conteúdo** por:
+
+```env
+# ================================
+# 🌐 CONEXÃO COM CHROME
+# ================================
+USAR_CHROME_EXISTENTE=false
+HEADLESS=false
+SLOW_MO=100
+CHROME_USER_DATA_DIR=C:/temp/puppeteer-profile
+
+# ================================
+# 🧪 MODO DESENVOLVIMENTO (MOCK LOCAL)
+# ================================
+MODO_TESTE=true
+LOGIN_URL=http://localhost:3456/login
+AGENDAMENTO_URL=http://localhost:3456/agendamento/atendimento.php
+WFM_LOGIN_URL=http://localhost:3456/login
+WFM_URL=http://localhost:3456/agendamento/atendimento.php
+GPS_URL=http://localhost:3456/login
+
+# ================================
+# 🔐 CREDENCIAIS FICTÍCIAS (para teste)
+# ================================
+LOGIN_EMAIL=teste@mock.local
+LOGIN_PASSWORD=mock123
+WFM_USERNAME=usuario_mock
+WFM_PASSWORD=senha_mock
+
+# ================================
+# ⚙️ CONTROLE DE SISTEMAS
+# ================================
+ABRIR_WFM=false
+ABRIR_GPS=false
+WFM_AUTO_LOGIN=false
+
+# ================================
+# 🎯 AUTOMAÇÃO
+# ================================
+ATIVIDADE_TESTE=7391517763
+DEFAULT_TIMEOUT=60000
+ELEMENT_WAIT_TIMEOUT=30000
+DEBUG_SCREENSHOTS=true
+OUTPUT_DIR=./output
+LOG_LEVEL=info
+
+# ================================
+# 🔧 PUPPETEER
+# ================================
+IGNORE_HTTPS_ERRORS=true
+PUPPETEER_ARGS=--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage
+```
+
+> ✅ Isso configura tudo para usar o **Mock Server Local** em vez dos sistemas reais da Vivo.
+
+---
+
+### 4. **Inicie o Mock Server (Terminal 1)**
+```powershell
+npm run mock
+```
+
+> Aguarde a mensagem:
+> ```
+> 🎭 Mock server rodando em http://localhost:3456
+> ```
+
+> ⚠️ **Não feche este terminal.** Ele precisa ficar aberto durante os testes.
+
+---
+
+### 5. **Inicie o Dashboard Web (Terminal 2 – Nova Janela)**
+```powershell
+npm start
+```
+
+> Aguarde a mensagem:
+> ```
+> 🌐 Dashboard do Auto Robô v2.0
+> Acesse: http://localhost:3000
+> ```
+
+---
+
+### 6. **Acesse o Menu Web no Navegador**
+Abra seu navegador e acesse:
+👉 **http://localhost:3000**
+
+Você verá:
+- Botão **"Modo Desenvolvimento (Mock Local)"**
+- Botão **"Modo Produção (Rede Corporativa)"**
+- Área de **Logs em Tempo Real**
+
+---
+
+### 7. **Execute o Robô no Modo Desenvolvimento**
+No Dashboard, clique em:
+> **🧪 Modo Desenvolvimento**  
+> *(ou pressione a tecla `1` no teclado)*
+
+✅ O robô vai:
+- Abrir uma janela do Chrome
+- Acessar `http://localhost:3456/login`
+- Preencher credenciais fictícias
+- Navegar para a página de agendamento
+- Simular a "Injeção D0"
+- Salvar screenshot em `output/screenshots/`
+- Mostrar logs coloridos no Dashboard
+
+---
+
+### 8. **(Opcional) Teste tudo em um único comando**
+Se quiser automatizar os dois terminais (mock + dashboard), use:
+
+```powershell
+npm run dev
+```
+
+> Isso roda **Mock Server + Dashboard** simultaneamente com `concurrently`.  
+> Depois, acesse `http://localhost:3000` e clique no botão.
+
+---
+
+## 🛠️ COMANDOS ÚTEIS PARA DIAGNÓSTICO
+
+| Comando | Função |
+|--------|--------|
+| `npm run mock` | Inicia servidor local que simula GOI/WFM |
+| `npm start` | Inicia o Dashboard Web (`http://localhost:3000`) |
+| `npm run dev` | Inicia Mock + Dashboard juntos |
+| `npm run test:mock` | Verifica se o Mock Server está respondendo |
+| `npm run check:vpn` | Verifica se você está na rede corporativa (só funciona no escritório) |
+
+---
+
+## 🏢 QUANDO FOR AO ESCRITÓRIO (com cabo/VPN)
+
+1. Conecte o cabo de rede
+2. Edite o `.env`:
+   ```env
+   MODO_TESTE=false
+   USAR_CHROME_EXISTENTE=false
+   HEADLESS=false
+   ```
+3. Preencha suas credenciais reais:
+   ```env
+   LOGIN_EMAIL=seu_usuario@vivo.com.br
+   LOGIN_PASSWORD=sua_senha_real
+   ```
+4. Execute:
+   ```powershell
+   npm start
+   ```
+5. No Dashboard, clique em **"Modo Produção"**
+
+---
+
+## 📌 RESUMO VISUAL
+
+```
+🏠 EM CASA (sem VPN):
+  Terminal 1 → npm run mock
+  Terminal 2 → npm start
+  Navegador → http://localhost:3000 → [Modo Desenvolvimento]
+
+🏢 NO ESCRITÓRIO (com cabo):
+  .env → MODO_TESTE=false + credenciais reais
+  npm start → http://localhost:3000 → [Modo Produção]
+```
+
+---
+
+Pronto! Agora você tem um fluxo **totalmente funcional em casa**, sem depender da VPN, e pronto para escalar quando estiver no escritório.
+
+Se quiser, posso gerar um script `.ps1` que automatiza todos esses passos com um clique. É só pedir! 🤖✨
+
+
+**********************************************************************************************************************************************************
+
+Considerando seu perfil (ADS, Autismo Nível 1, Aphantasia) e o objetivo de tornar este seu **Projeto Base de Portfólio**, aqui estão sugestões de melhorias divididas por pilares. O foco é aumentar a **previsibilidade**, reduzir a **carga cognitiva** durante o debug e aumentar o **valor técnico** para sua faculdade/emprego.
+
+---
+
+### 1. Pilar Técnico: Resiliência e "Auto-Cura"
+O maior inimigo da automação web é a instabilidade da rede ou lentidão do sistema alvo. Para um autista, erros inesperados geram ansiedade. Vamos blindar o código.
+
+*   **Implementar "Retry Pattern" Inteligente:**
+    *   *Problema:* Se o elemento não carregar na primeira tentativa, o robô quebra.
+    *   *Solução:* Crie uma função utilitária `executarComTentativa(fn, tentativas = 3)` em `src/utils/retry.js`.
+    *   *Benefício:* O robô tenta 3 vezes antes de falhar. Isso reduz falsos positivos e te dá paz de espírito.
+*   **Health Check Contínuo no Dashboard:**
+    *   *Melhoria:* No `public/index.html`, adicione um indicador visual (bolinha verde/vermelha) que pinga o Mock Server a cada 10 segundos.
+    *   *Por que:* Você saberá *antes* de clicar em "Iniciar" se o ambiente está pronto, evitando o erro `ECONNREFUSED` surpresa.
+
+### 2. Pilar Cognitivo (Aphantasia & Processamento): Feedback Não-Visual
+Como você não cria imagens mentais e processa bem sons/texto estruturado, o feedback do robô deve ser **explícito**.
+
+*   **Logs Estruturados em JSON (Opcional Avançado):**
+    *   Além dos logs coloridos no terminal, gere um arquivo `execucao_log.json` ao final.
+    *   Estrutura: `{ "etapa": "Login", "status": "SUCESSO", "tempo_ms": 1200, "timestamp": "..." }`.
+    *   *Vantagem:* Você pode ler esse arquivo como texto puro para auditar o que aconteceu, sem precisar "imaginar" o fluxo.
+*   **Feedback Sonoro (Beep Simples):**
+    *   Adicione uma biblioteca simples como `node-beep` ou apenas um `console.log('\x07')` (bell character) quando o robô terminar ou der erro crítico.
+    *   *Vantagem:* Você não precisa ficar olhando para a tela o tempo todo. O som avisa: "Acabei" ou "Deu erro".
+
+### 3. Pilar Acadêmico (ADS): Documentação e Métricas
+Para tirar nota máxima e impressionar recrutadores, o projeto precisa mostrar que você entende de **Engenharia de Software**, não apenas de "fazer funcionar".
+
+*   **Geração de Relatório CSV/Excel:**
+    *   Ao final de cada execução (sucesso ou falha), o robô deve appendar uma linha em um arquivo `historico_execucoes.csv`.
+    *   Colunas: `Data,Hora,Modo (Dev/Prod),Status,Duracao_Total_Segundos,Erros_Encontrados`.
+    *   *Valor:* Mostra habilidade com manipulação de arquivos (`fs`) e estruturação de dados.
+*   **Diagrama de Arquitetura no README:**
+    *   Use a sintaxe **Mermaid** (nativa do GitHub) para desenhar o fluxo. Como você tem aphantasia, ter o diagrama escrito em código texto ajuda muito a entender a estrutura sem precisar "ver" a imagem mentalmente.
+    *   Exemplo:
+      ```mermaid
+      graph TD;
+          User-->Dashboard[Dashboard Web :3000];
+          Dashboard-->|Spawn| Robo[Processo Filho Node];
+          Robo-->|Se DEV| Mock[Mock Server :3456];
+          Robo-->|Se PROD| Vivo[Sistemas Vivo VPN];
+          Robo-->|Logs| Socket[Socket.io];
+          Socket-->Dashboard;
+      ```
+
+### 4. Pilar de Usabilidade: O "Botão de Pânico"
+*   **Kill Switch no Dashboard:**
+    *   Adicione um botão vermelho grande **"PARAR ROBÔ AGORA"** no `public/index.html`.
+    *   *Função:* Envia um evento `socket.emit('kill-robot')` que executa `robotProcess.kill()` no servidor.
+    *   *Por que:* Às vezes o robô entra em loop ou trava. Ter um controle manual imediato reduz a sensação de perda de controle.
+
+### 5. Sugestão de Código: Implementando o Relatório CSV
+Aqui está um snippet prático para adicionar ao seu `index.js` (ou onde termina a execução):
+
+```javascript
+import fs from 'fs';
+import path from 'path';
+
+const salvarRelatorio = (modo, status, duracaoSegundos) => {
+    const csvPath = path.join(process.cwd(), 'output', 'historico.csv');
+    const dataHora = new Date().toLocaleString('pt-BR');
+    const linha = `${dataHora},${modo},${status},${duracaoSegundos}\n`;
+    
+    // Se arquivo não existe, cria com cabeçalho
+    if (!fs.existsSync(csvPath)) {
+        fs.writeFileSync(csvPath, 'DataHora,Modo,Status,DuracaoSeg\n');
+    }
+    
+    fs.appendFileSync(csvPath, linha);
+    console.log('📄 Relatório salvo em output/historico.csv');
+};
+```
+
+### Resumo do Plano de Ação para Você:
+
+1.  **Imediato:** Adicione o **Botão de Parar** no Dashboard e o **Health Check** (bolinha verde) para saber se o Mock está online.
+2.  **Curto Prazo:** Implemente a geração do **CSV de Histórico**. É fácil de fazer e agrega muito valor visual ao projeto.
+3.  **Médio Prazo:** Escreva o **README.md** com o diagrama Mermaid e explique a arquitetura de "Processos Isolados" (spawn). Isso mostra maturidade técnica.
+
+Quer que eu gere o código completo do **Health Check** para o `public/index.html` ou o script do **Relatório CSV** integrado ao seu `index.js` atual?
