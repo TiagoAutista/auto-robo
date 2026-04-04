@@ -1,0 +1,561 @@
+### USER
+Análise e descreva
+
+### ASSISTANT
+# 🤖 Auto Robô v2.0 - Análise Completa do Projeto
+
+## 📋 Visão Geral
+
+O **Auto Robô v2.0** é um sistema de automação web corporativa desenvolvido em **Node.js** com **Puppeteer**, criado por **Tiago Cesar Soares dos Santos (xAgron)** como parte dos estudos em **Análise e Desenvolvimento de Sistemas (ADS)**.
+
+### 🎯 Objetivo Principal
+Automatizar tarefas repetitivas em sistemas internos da Vivo/GVT:
+- **GOI** - Gestão de Ordens de Instalação
+- **WFM** - Workforce Management  
+- **GPS** - Sistema de geoprocessamento
+
+---
+
+## 🏗 Arquitetura Técnica
+
+```
+auto-robo-main/
+├── .env                    # Configurações sensíveis e flags
+├── package.json           # Dependências e scripts
+├── index.js               # Entry point da automação
+├── public/
+│   └── index.html         # Dashboard Web (localhost:3000)
+├── src/
+│   ├── cli/
+│   │   └── menu.js        # Menu CLI (legado)
+│   ├── config/
+│   │   └── systems.js     # Centralização de URLs e credenciais
+│   ├── browser/
+│   │   └── index.js       # Gerenciamento do Chrome/Puppeteer
+│   ├── services/
+│   │   ├── login.js       # Lógica de autenticação GOI/WFM
+│   │   ├── injection.js   # Injeção D0 e atribuição
+│   │   └── navigation.js  # Navegação entre abas/sistemas
+│   ├── utils/
+│   │   ├── logger.js      # Logger colorido com níveis
+│   │   ├── wait.js        # Espera inteligente com retry
+│   │   ├── selectors.js   # Centralização de seletores CSS
+│   │   └── screenshots.js # Captura de evidências
+│   └── server/
+│       └── index.js       # Servidor Web + Socket.io
+├── scripts/
+│   ├── mock-server.js     # Servidor Mock para testes locais
+│   ├── test-*.js          # Scripts de diagnóstico
+│   └── check-vpn.js       # Verificação de rede corporativa
+└── output/                # Logs e screenshots gerados
+```
+
+---
+
+## 🔄 Fluxo de Automação
+
+```mermaid
+graph LR
+    A[Dashboard Web:3000] -->|Usuário escolhe modo| B{Modo?}
+    B -->|DEV| C[Mock Server:3456]
+    B -->|PROD| D[Sistemas Vivo VPN]
+    C & D --> E[Spawn: Processo Filho Node]
+    E --> F[initBrowser - Puppeteer]
+    F --> G[Login GOI]
+    G --> H[Login WFM opcional]
+    H --> I[Abrir abas adicionais]
+    I --> J[Injeção D0]
+    J --> K[Busca/Atribui PON]
+    K --> L[Screenshot + Logs]
+    L --> M[Relatório CSV]
+```
+
+---
+
+## ⚙️ Modos de Execução
+
+### 🧪 Modo Desenvolvimento (Mock Local)
+| Característica | Descrição |
+|---------------|-----------|
+| **URLs** | `http://localhost:3456/*` |
+| **Requisito** | `npm run mock` rodando |
+| **VPN** | ❌ Não necessária |
+| **Credenciais** | Fictícias (`teste@mock.local`) |
+| **Uso ideal** | Desenvolvimento em casa |
+
+### 🏢 Modo Produção (Sistemas Reais)
+| Característica | Descrição |
+|---------------|-----------|
+| **URLs** | `https://goi.vivo.com.br/*` |
+| **Requisito** | VPN/Cabo corporativo |
+| **VPN** | ✅ Obrigatória |
+| **Credenciais** | Reais (`.env`) |
+| **Uso ideal** | Escritório ou VPN ativa |
+
+---
+
+## 🚀 Comandos Principais
+
+```powershell
+# Instalar dependências
+npm install
+
+# Iniciar Mock Server (Terminal 1)
+npm run mock
+
+# Iniciar Dashboard Web (Terminal 2)
+npm start
+
+# Modo desenvolvimento tudo-em-um
+npm run dev
+
+# Diagnósticos
+npm run test:mock      # Verifica Mock Server
+npm run check:vpn      # Verifica acesso corporativo
+npm run test:chrome    # Testa Puppeteer
+```
+
+---
+
+## 🎨 Dashboard Web (localhost:3000)
+
+### Funcionalidades da Interface:
+- ✅ Botões grandes para **Modo DEV** e **Modo PROD**
+- ✅ **Status visual** (bolinha verde/vermelha) do robô
+- ✅ **Logs em tempo real** via Socket.io com cores
+- ✅ **Diagnóstico de rede** com 1 clique
+- ✅ **Atalhos de teclado**: `1`=DEV, `2`=PROD, `D`=Diagnóstico
+- ✅ Design responsivo e acessível
+
+### Tecnologias do Frontend:
+- HTML5 + CSS3 (variáveis CSS para tema escuro)
+- Socket.io Client para comunicação real-time
+- JavaScript vanilla (sem frameworks pesados)
+
+---
+
+## 🔐 Segurança e Configuração
+
+### `.env` - Variáveis Sensíveis (NUNCA commitar):
+```env
+# Chrome
+HEADLESS=false
+USAR_CHROME_EXISTENTE=false
+
+# URLs (serão sobrescritas pelo Dashboard se DEV)
+LOGIN_URL=https://goi.vivo.com.br/login
+
+# Credenciais
+LOGIN_EMAIL=seu_usuario@vivo.com.br
+LOGIN_PASSWORD=sua_senha_aqui
+
+# Automação
+DEFAULT_TIMEOUT=60000
+MAX_RETRIES=3
+DEBUG_SCREENSHOTS=true
+```
+
+### Boas Práticas Implementadas:
+- ✅ Credenciais fora do código (`.env` + `.gitignore`)
+- ✅ Seletores CSS centralizados (`src/utils/selectors.js`)
+- ✅ Logs estruturados com níveis (info/warn/error/success)
+- ✅ Screenshots automáticos em caso de erro
+- ✅ Retry inteligente em falhas de rede/elementos
+
+---
+
+## 📊 Valor Acadêmico (ADS)
+
+### Disciplinas que este projeto contempla:
+
+| Disciplina | Aplicação no Projeto |
+|-----------|---------------------|
+| **Engenharia de Software** | Arquitetura modular, separação de responsabilidades, Design Patterns |
+| **Banco de Dados** | Geração de relatórios CSV, persistência de histórico |
+| **Redes de Computadores** | DNS, VPN, HTTP, WebSocket (Socket.io) |
+| **Programação Web** | Express, Puppeteer, DOM manipulation |
+| **Testes de Software** | Mock Server, scripts de diagnóstico, tratamento de erros |
+| **Interface Humano-Computador** | Dashboard acessível, feedback visual/sonoro |
+
+---
+
+## 🧠 Considerações Neurodivergentes (Autismo Nível 1 + Aphantasia)
+
+### Recursos que reduzem carga cognitiva:
+- 🔹 **Previsibilidade**: Mock Server elimina variáveis externas
+- 🔹 **Feedback explícito**: Logs coloridos + timestamps + status visual
+- 🔹 **Checklists visuais**: Dashboard mostra exatamente o que está acontecendo
+- 🔹 **Controle manual**: Botão de parar + atalhos de teclado
+- 🔹 **Documentação em código**: Diagramas Mermaid (texto → estrutura)
+
+### Sugestões adicionais:
+- 🎵 Feedback sonoro ao finalizar (`console.log('\x07')`)
+- 📄 Logs em JSON para auditoria textual
+- 📋 Checklist.md para validação pré-execução
+
+---
+
+## 🛠 Próximos Passos Sugeridos
+
+### Imediato (1-2 dias):
+- [ ] Implementar **botão "PARAR"** no Dashboard (kill switch)
+- [ ] Adicionar **health check** automático do Mock Server
+- [ ] Gerar **relatório CSV** ao final de cada execução
+
+### Curto Prazo (1 semana):
+- [ ] Escrever **README.md profissional** com diagrama Mermaid
+- [ ] Adicionar **teste de conexão** antes de iniciar automação
+- [ ] Implementar **retry pattern** em todas as interações críticas
+
+### Médio Prazo (2-4 semanas):
+- [ ] Criar **dashboard de histórico** com gráficos das execuções
+- [ ] Adicionar **agendamento** com `node-cron`
+- [ ] Implementar **exportação para Excel** com `exceljs`
+
+---
+
+## 🎯 Resumo Executivo
+
+> **Auto Robô v2.0** é um projeto de automação corporativa **modular, resiliente e acessível**, desenvolvido com foco em:
+> 1. **Funcionalidade offline** (Mock Server para desenvolvimento sem VPN)
+> 2. **Profissionalismo técnico** (arquitetura limpa, documentação, testes)
+> 3. **Inclusão cognitiva** (feedback claro, controle manual, previsibilidade)
+> 4. **Valor acadêmico** (aplicação prática de conceitos de ADS)
+
+**Status atual**: ✅ Funcional para desenvolvimento local | 🔄 Pronto para validação corporativa com VPN
+
+---
+
+Precisa que eu detalhe alguma parte específica (código de algum módulo, configuração do dashboard, ou geração do relatório CSV)? 🤖✨
+
+### USER
+Queria criar sessões para cada site para poder dar a opção de fazer em separado e unitário 
+
+### ASSISTANT
+Excelente ideia, Tiago! Separar as execuções por sistema (GOI, WFM, GPS) torna o projeto **muito mais profissional, previsível e fácil de manter**. Além disso, isola falhas: se o GOI travar, o WFM ainda pode rodar.
+
+Abaixo está o **passo a passo completo** para implementar sessões unitárias, mantendo sua arquitetura atual (`spawn` + `env` + `socket.io`).
+
+---
+
+### 📋 Visão Geral da Mudança
+1. **Dashboard**: Adiciona checkboxes para selecionar quais sistemas executar.
+2. **Servidor**: Envia a lista de sistemas selecionados para o processo filho via variável de ambiente.
+3. **Robô (`index.js`)**: Lê a lista e executa **apenas** os módulos escolhidos, com tratamento de erro isolado por sistema.
+
+---
+
+### 🖥️ 1. Atualizar o Dashboard (`public/index.html`)
+
+Substitua a seção de controles e o `<script>` por este:
+
+```html
+<!-- Adicione dentro do <div class="container">, após o card de controle -->
+<div class="card">
+  <h2>🎯 Sistemas para Executar</h2>
+  <div class="system-toggles" style="display:flex; gap:15px; flex-wrap:wrap; margin-bottom:15px;">
+    <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
+      <input type="checkbox" id="chkGOI" checked> <strong>GOI</strong>
+    </label>
+    <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
+      <input type="checkbox" id="chkWFM" checked> <strong>WFM</strong>
+    </label>
+    <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
+      <input type="checkbox" id="chkGPS" checked> <strong>GPS</strong>
+    </label>
+  </div>
+  <small style="opacity:0.7;">⚠ Selecione ao menos um sistema antes de iniciar.</small>
+</div>
+
+<!-- Atualize o <script> no final do arquivo -->
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+const logsEl = document.getElementById('logs');
+const statusDot = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
+const diagnosticResult = document.getElementById('diagnosticResult');
+
+socket.on('log', (data) => {
+  const time = new Date().toLocaleTimeString();
+  const line = document.createElement('div');
+  line.className = `log-line log-${data.level}`;
+  line.innerHTML = `<span class="timestamp">[${time}]</span>${data.msg}`;
+  logsEl.appendChild(line);
+  logsEl.scrollTop = logsEl.scrollHeight;
+});
+
+socket.on('status', (data) => {
+  const isRunning = data.running;
+  statusDot.className = isRunning ? 'status-dot running' : 'status-dot idle';
+  statusText.textContent = isRunning ? 'Executando automação...' : 'Pronto para novo comando';
+  document.getElementById('btnDev').disabled = isRunning;
+  document.getElementById('btnProd').disabled = isRunning;
+});
+
+function startRobot(mode) {
+  // Coleta sistemas selecionados
+  const systems = [];
+  if(document.getElementById('chkGOI').checked) systems.push('GOI');
+  if(document.getElementById('chkWFM').checked) systems.push('WFM');
+  if(document.getElementById('chkGPS').checked) systems.push('GPS');
+
+  if(systems.length === 0) {
+    addLocalLog('⚠ Selecione ao menos um sistema para executar.', 'warn');
+    return;
+  }
+
+  socket.emit('start-robot', { mode, systems });
+  addLocalLog(`🚀 Iniciando modo: ${mode} | Sistemas: ${systems.join(', ')}`, 'info');
+}
+
+function runDiagnostics() {
+  addLocalLog('Iniciando diagnóstico de rede...', 'info');
+  diagnosticResult.innerHTML = '<em>Analisando...</em>';
+  fetch('/api/diagnose')
+    .then(res => res.json())
+    .then(data => {
+      let html = '';
+      html += data.mock ? '<div class="log-success">✅ Mock Server: ONLINE</div>' : '<div class="log-error">❌ Mock Server: OFFLINE</div>';
+      html += data.vpn ? '<div class="log-success">✅ Rede Corporativa: ACESSÍVEL</div>' : '<div class="log-warn">⚠ Rede Corporativa: INACESSÍVEL</div>';
+      diagnosticResult.innerHTML = html;
+    })
+    .catch(() => diagnosticResult.innerHTML = '<div class="log-error">❌ Erro ao executar diagnóstico</div>');
+}
+
+function addLocalLog(msg, level) {
+  const time = new Date().toLocaleTimeString();
+  const line = document.createElement('div');
+  line.className = `log-line log-${level}`;
+  line.innerHTML = `<span class="timestamp">[${time}]</span>${msg}`;
+  logsEl.appendChild(line);
+  logsEl.scrollTop = logsEl.scrollHeight;
+}
+
+// Atalhos de teclado
+document.addEventListener('keydown', (e) => {
+  if(e.key === '1') startRobot('DEV');
+  if(e.key === '2') startRobot('PROD');
+  if(e.key === 'd' || e.key === 'D') runDiagnostics();
+});
+</script>
+```
+
+---
+
+### 🔌 2. Atualizar o Servidor (`src/server/index.js`)
+
+Altere apenas a parte do `socket.on('start-robot', ...)` para ler e injetar a lista de sistemas:
+
+```javascript
+socket.on('start-robot', async (data) => {
+  if (robotProcess) {
+    socket.emit('log', { level: 'warn', msg: '⚠ Robô já está rodando. Aguarde finalizar.' });
+    return;
+  }
+
+  const { mode, systems } = data; // Ex: ['GOI', 'WFM']
+  if (!systems || systems.length === 0) {
+    socket.emit('log', { level: 'error', msg: '❌ Nenhum sistema selecionado.' });
+    return;
+  }
+
+  socket.emit('log', { level: 'info', msg: `🚀 Iniciando Robô no modo: ${mode} | Sistemas: ${systems.join(', ')}` });
+
+  // Diagnóstico pré-execução (mantido do seu código anterior)
+  let canProceed = true;
+  if (mode === 'DEV') {
+    try {
+      const res = await fetch('http://localhost:3456/login', { method: 'HEAD', signal: AbortSignal.timeout(3000) });
+      if (!res.ok) throw new Error();
+      socket.emit('log', { level: 'success', msg: '✅ Mock Server está ONLINE' });
+    } catch {
+      socket.emit('log', { level: 'error', msg: '❌ Mock Server NÃO está rodando! Execute: npm run mock' });
+      canProceed = false;
+    }
+  } else {
+    try {
+      const dns = await import('dns').then(m => m.promises);
+      await dns.lookup('goi.vivo.com.br');
+      socket.emit('log', { level: 'success', msg: '✅ Rede corporativa acessível' });
+    } catch {
+      socket.emit('log', { level: 'error', msg: '❌ Sem acesso à rede corporativa. Modo PROD requer VPN/Cabo.' });
+      canProceed = false;
+    }
+  }
+
+  if (!canProceed) {
+    socket.emit('status', { running: false });
+    return;
+  }
+
+  // Injeta variáveis de ambiente
+  const env = { ...process.env };
+  env.TARGET_SYSTEMS = JSON.stringify(systems); // 👈 NOVA VARIÁVEL
+
+  if (mode === 'DEV') {
+    env.MODO_TESTE = 'true';
+    env.LOGIN_URL = 'http://localhost:3456/login';
+    env.AGENDAMENTO_URL = 'http://localhost:3456/agendamento/atendimento.php';
+    env.WFM_LOGIN_URL = 'http://localhost:3456/login';
+    env.WFM_URL = 'http://localhost:3456/agendamento/atendimento.php';
+    env.GPS_URL = 'http://localhost:3456/login';
+    env.HEADLESS = 'false';
+  } else {
+    env.MODO_TESTE = 'false';
+  }
+
+  const projectRoot = path.join(__dirname, '../..');
+  const indexPath = path.join(projectRoot, 'index.js');
+  if (!fs.existsSync(indexPath)) {
+    socket.emit('log', { level: 'error', msg: `❌ Arquivo index.js não encontrado em ${indexPath}` });
+    return;
+  }
+
+  robotProcess = spawn('node', ['index.js'], { cwd: projectRoot, env, stdio: ['ignore', 'pipe', 'pipe'] });
+  socket.emit('status', { running: true });
+
+  // ... (mantenha seu código de captura de stdout/stderr e robotProcess.on('close') exatamente como está) ...
+});
+```
+
+---
+
+### 🤖 3. Atualizar o Robô (`index.js`)
+
+Substitua seu `index.js` por esta versão **modular e isolada por sistema**:
+
+```javascript
+// index.js - Entry Point com Execução Unitária por Sistema
+import { initBrowser, closeBrowser } from './src/browser/index.js';
+import { loginService, injectionService, navigationService } from './src/index.js';
+import { logger } from './src/index.js';
+import { captureAndSave } from './src/utils/screenshots.js';
+import { sleep } from './src/utils/wait.js';
+
+// Lê os sistemas selecionados pelo Dashboard (padrão: todos)
+let TARGET_SYSTEMS = ['GOI', 'WFM', 'GPS'];
+try {
+  if (process.env.TARGET_SYSTEMS) {
+    TARGET_SYSTEMS = JSON.parse(process.env.TARGET_SYSTEMS);
+  }
+} catch (e) {
+  logger.warn('main', '⚠ Falha ao ler TARGET_SYSTEMS. Usando padrão: GOI,WFM,GPS');
+}
+
+console.log(`🎯 Sistemas selecionados: ${TARGET_SYSTEMS.join(', ')}`);
+
+const runAutomation = async () => {
+  let browser = null;
+  let page = null;
+  let globalError = false;
+
+  try {
+    logger.info('main', '📦 Inicializando navegador...');
+    const { browser: br, page: pg } = await initBrowser();
+    browser = br;
+    page = pg;
+
+    // === GOI ===
+    if (TARGET_SYSTEMS.includes('GOI')) {
+      try {
+        logger.info('GOI', '🔐 Etapa: Login no GOI');
+        await loginService.loginGOI(page);
+        await sleep(1000);
+        logger.success('GOI', '✅ Login GOI concluído');
+      } catch (err) {
+        logger.error('GOI', `❌ Falha no GOI: ${err.message}`);
+        globalError = true;
+      }
+    }
+
+    // === WFM ===
+    if (TARGET_SYSTEMS.includes('WFM')) {
+      try {
+        logger.info('WFM', '🔐 Etapa: Login no WFM');
+        await loginService.loginWFM(page);
+        await sleep(1000);
+        logger.success('WFM', '✅ Login WFM concluído');
+      } catch (err) {
+        logger.error('WFM', `❌ Falha no WFM: ${err.message}`);
+        globalError = true;
+      }
+    }
+
+    // === GPS ===
+    if (TARGET_SYSTEMS.includes('GPS')) {
+      try {
+        logger.info('GPS', '🌐 Etapa: Abrindo GPS');
+        await navigationService.openSystemTabs(browser, page); // Ajuste conforme sua implementação real
+        await sleep(1000);
+        logger.success('GPS', '✅ GPS carregado');
+      } catch (err) {
+        logger.error('GPS', `❌ Falha no GPS: ${err.message}`);
+        globalError = true;
+      }
+    }
+
+    // === Injeção D0 (só faz sentido se GOI estiver ativo) ===
+    if (TARGET_SYSTEMS.includes('GOI') && !globalError) {
+      try {
+        logger.info('GOI', '💉 Etapa: Injeção D0');
+        await injectionService.executarInjecaoD0(page);
+        logger.success('GOI', '✅ Injeção D0 concluída');
+      } catch (err) {
+        logger.error('GOI', `❌ Falha na Injeção D0: ${err.message}`);
+        globalError = true;
+      }
+    }
+
+    // Screenshot final
+    await captureAndSave(page, 'finalizacao');
+    logger.success('main', '✨ Fluxo finalizado!');
+
+  } catch (error) {
+    logger.error('main', `💥 Erro crítico geral: ${error.message}`);
+    if (page) await captureAndSave(page, 'erro_critico');
+    process.exitCode = 1;
+  } finally {
+    if (browser) {
+      logger.info('main', '🔒 Fechando navegador...');
+      await closeBrowser(browser);
+    }
+    logger.info('main', '🔚 Processo encerrado.');
+  }
+};
+
+// Executa sempre
+runAutomation().catch(err => {
+  console.error('💥 Erro fatal não tratado:', err);
+  process.exit(1);
+});
+```
+
+---
+
+### 🔄 Como funciona agora?
+
+1. Você abre o Dashboard em `http://localhost:3000`.
+2. **Marca/Desmarca** os sistemas que quer executar (ex: só `GOI`).
+3. Clica em `Modo Desenvolvimento` ou `Produção`.
+4. O servidor injeta `TARGET_SYSTEMS=["GOI"]` no processo filho.
+5. O `index.js` lê a variável e roda **apenas** os blocos `if` correspondentes.
+6. Se um sistema falhar, os outros continuam rodando (isolamento de erros).
+7. O Dashboard mostra logs prefixados por `[GOI]`, `[WFM]`, etc., facilitando a leitura.
+
+---
+
+### 💡 Benefícios para seu Perfil (ADS + Neurodivergência)
+- ✅ **Previsibilidade**: Você controla exatamente o que vai rodar. Sem surpresas de "o WFM travou e parou tudo".
+- ✅ **Debug Focado**: Logs separados por sistema reduzem a sobrecarga cognitiva.
+- ✅ **Estrutura de Portfólio**: Mostra domínio de **arquitetura modular**, **seleção dinâmica de fluxos** e **isolamento de falhas** (conceitos avançados de Engenharia de Software).
+- ✅ **Escalável**: No futuro, basta adicionar `GPS`, `CRM`, etc., criando novos `if (TARGET_SYSTEMS.includes('CRM'))` sem refatorar o núcleo.
+
+---
+
+### ✅ Próximos Passos Sugeridos
+1. Teste rodando apenas `GOI` e verifique se os logs aparecem corretamente.
+2. Depois adicione o **Botão de Parar (Kill Switch)** no dashboard (envia `socket.emit('kill-robot')` → `robotProcess.kill()`).
+3. Gere o `historico.csv` ao final da execução com o status de **cada sistema** (ex: `GOI:OK,WFM:ERR,GPS:OK`).
+
+Quer que eu gere o código do **Kill Switch + Relatório CSV por sistema** para fechar essa versão v2.1? 🤖✨
