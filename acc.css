@@ -1,0 +1,162 @@
+/* Cards de tarefa independentes */
+.task-card {
+  transition: transform 0.2s, box-shadow 0.2s;
+  border-left: 4px solid var(--vivo-blue);
+}
+
+.task-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.task-card[data-task="GOI_CHECK"] { border-left-color: #28a745; }
+.task-card[data-task="WFM_CPF"] { border-left-color: #17a2b8; }
+.task-card[data-task="GPS_OPEN"] { border-left-color: #ffc107; }
+.task-card[data-task="FULL"] { border-left-color: #dc3545; }
+
+/* Header dos cards com botão de executar */
+.card-header-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.btn-run {
+  background: var(--vivo-blue);
+  color: white;
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-run:hover {
+  background: var(--vivo-blue-dark);
+  transform: scale(1.05);
+}
+
+.btn-run:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Footer de cada task */
+.task-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0,0,0,0.05);
+}
+
+.task-status {
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.task-status.idle { color: #6c757d; }
+.task-status.running { color: #0d6efd; animation: pulse 1.5s infinite; }
+.task-status.success { color: #28a745; }
+.task-status.error { color: #dc3545; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Seleção de modo global */
+.mode-selector {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 12px;
+  border: 2px solid #dee2e6;
+  border-radius: 8px;
+  background: white;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mode-btn:hover {
+  border-color: var(--vivo-blue);
+  background: #f8f9fa;
+}
+
+.mode-btn.active {
+  border-color: var(--vivo-blue);
+  background: rgba(23, 162, 184, 0.1);
+  box-shadow: 0 0 0 3px rgba(23, 162, 184, 0.2);
+}
+
+.mode-btn[data-mode="PROD"].active {
+  border-color: #28a745;
+  background: rgba(40, 167, 69, 0.1);
+  box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.2);
+}
+
+.mode-btn strong {
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.mode-btn small {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+/* Inputs do FULL em linha */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .mode-selector {
+    flex-direction: column;
+  }
+  
+  .card-header-content {
+    flex-wrap: wrap;
+  }
+}
+
+/* Logs com filtro por task */
+.log-entry {
+  padding: 6px 10px;
+  border-left: 3px solid transparent;
+  margin-bottom: 4px;
+  background: #f8f9fa;
+  border-radius: 0 4px 4px 0;
+  font-family: monospace;
+  font-size: 0.85rem;
+}
+
+.log-entry[data-task="GOI_CHECK"] { border-left-color: #28a745; }
+.log-entry[data-task="WFM_CPF"] { border-left-color: #17a2b8; }
+.log-entry[data-task="GPS_OPEN"] { border-left-color: #ffc107; }
+.log-entry[data-task="FULL"] { border-left-color: #dc3545; }
+
+.log-entry.hidden { display: none; }
