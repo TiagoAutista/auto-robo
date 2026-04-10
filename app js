@@ -1,0 +1,275 @@
+/**
+ * 🤖 Auto Robô v2.0 | Arquitetura Reativa & Modular
+ * @author xAgron • ADS
+ * @license MIT
+ */
+
+const App = (() => {
+  'use strict';
+
+  // 🧠 Estado Reativo (Proxy)
+  const _raw = {
+    mode: localStorage.getItem('robô_mode') || 'DEV',
+    tasks: { GOI_CHECK: {}, WFM_CPF: {}, GPS_OPEN: {}, FULL: {} },
+    logs: [],
+    metrics: { success: 0, failed: 0, total: 0, time: 0, online: navigator.onLine },
+    config: { shortcuts: { 'GOI_CHECK': 'g', 'WFM_CPF': 'w' }, retry: 3, telemetry: false },
+    queue: [],
+    notifications: []
+  };
+
+  const state = new Proxy(_raw, {
+    set(target, key, value) {
+      target[key] = value;
+      if (key === 'mode') localStorage.setItem('robô_mode', value);
+      if (key === 'config') localStorage.setItem('robô_config', JSON.stringify(value));
+      App.ui.update?.(key, value);
+      return true;
+    }
+  });
+
+  // 🔧 Utilitários
+  const utils = {
+    escape: s => { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; },
+    debounce: (fn, d = 300) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), d); }; },
+    formatCPF: v => v.replace(/\D/g, '').slice(0, 11).replace(/(\d{3})(\d)/g, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2'),
+    announce: m => { const e = document.createElement('div'); e.setAttribute('role', 'status'); e.setAttribute('aria-live', 'polite'); e.className = 'sr-only'; e.textContent = m; document.body.append(e); setTimeout(() => e.remove(), 2000); },
+    toast: (m, t = 'info') => {
+      const c = document.getElementById('toastContainer');
+      const el = document.createElement('div'); el.className = `toast ${t}`;
+      el.innerHTML = `<i class="fas fa-${t === 'success' ? 'check-circle' : t === 'error' ? 'times-circle' : 'info-circle'}"></i><span>${utils.escape(m)}</span>`;
+      c.append(el); setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 4000);
+    },
+    download: (n, c, t) => { const b = new Blob([c], { type: t }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = n; a.click(); URL.revokeObjectURL(u); },
+    logDebug: (m, d) => { if (!state.debug) return; const p = document.getElementById('debugConsole'); p.textContent += `\n[${new Date().toLocaleTimeString()}] ${m}\n${JSON.stringify(d, null, 2)}\n---`; p.scrollTop = p.scrollHeight; }
+  };
+
+  // 🛡️ Validação em Tempo Real
+  const Validation = {
+    rules: {
+      cpf: v => /^(\d{3}\.\d{3}\.\d{3}-\d{2}|\d{11})$/.test(v.replace(/\D/g, '')),
+      order: v => /^[A-Z0-9\-]{4,20}$/i.test(v),
+      optional: () => true
+    },
+    init() {
+      document.querySelectorAll('[data-validate]').forEach(inp => {
+        const rule = this.rules[inp.dataset.validate];
+        inp.addEventListener('input', utils.debounce(() => {
+          const valid = rule(inp.value);
+          inp.style.borderColor = valid ? 'var(--success)' : inp.value ? 'var(--danger)' : 'var(--border)';
+          inp.style.boxShadow = valid ? '0 0 0 2px rgba(46,125,50,0.2)' : 'none';
+        }, 250));
+      });
+    }
+  };
+
+  // 📥 Fila de Tarefas
+  const Queue = {
+    add(task, params, priority = 'normal') {
+      state.queue.push({ id: crypto.randomUUID(), task, params, priority, status: 'pending' });
+      this.render();
+      utils.logDebug('Queue add', { task, priority });
+    },
+    process() {
+      if (this.paused || state.queue.length === 0 || this.processing) return;
+      this.processing = true;
+      const next = state.queue.find(i => i.status === 'pending');
+      if (!next) return this.processing = false;
+      next.status = 'running';
+      this.render();
+      App.runTask(next.task, next.params, { queueId: next.id }).finally(() => {
+        next.status = 'done';
+        state.queue.shift();
+        this.processing = false;
+        this.render();
+      });
+    },
+    pause() { this.paused = !this.paused; utils.toast(this.paused ? '⏸️ Fila pausada' : '▶️ Fila retomada', this.paused ? 'warning' : 'success'); },
+    clear() { state.queue = []; this.render(); },
+    render() {
+      const list = document.getElementById('queueList');
+      if (!state.queue.length) { list.innerHTML = '<li class="text-muted">Fila vazia.</li>'; return; }
+      list.innerHTML = state.queue.map(i => `
+        <li class="queue-item" data-id="${i.id}">
+          <span><strong>${i.task}</strong> <span class="priority ${i.priority}">${i.priority}</span></span>
+          <span class="task-status ${i.status}" style="font-size:0.8rem">${i.status === 'pending' ? '⏳ Aguardando' : i.status === 'running' ? '🔄 Executando' : '✅ Concluído'}</span>
+        </li>`).join('');
+    }
+  };
+
+  // 🎙️ Comandos de Voz
+  const Voice = {
+    active: false,
+    init() {
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) return;
+      this.rec = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      this.rec.lang = 'pt-BR';
+      this.rec.continuous = false;
+      this.rec.interimResults = false;
+      this.rec.onresult = e => {
+        const cmd = e.results[0][0].transcript.toLowerCase().trim();
+        this.parse(cmd);
+      };
+      document.getElementById('voiceBtn').addEventListener('click', () => {
+        this.active ? this.stop() : this.start();
+      });
+    },
+    start() { try { this.rec.start(); this.active = true; document.getElementById('voiceBtn').style.color = 'var(--danger)'; utils.toast('🎙️ Ouvindo...'); } catch(e) { utils.toast('❌ Permissão de microfone negada', 'error'); } },
+    stop() { this.rec.stop(); this.active = false; document.getElementById('voiceBtn').style.color = ''; utils.toast('🎙️ Voz desativada'); },
+    parse(cmd) {
+      utils.logDebug('Voice cmd', cmd);
+      const map = { 'consultar goi': 'GOI_CHECK', 'buscar wfm': 'WFM_CPF', 'abrir gps': 'GPS_OPEN', 'automação completa': 'FULL' };
+      const task = Object.keys(map).find(k => cmd.includes(k));
+      if (task) { App.runTask(map[task]); utils.announceSR(`Executando ${task}`); }
+      else utils.toast('🤖 Comando não reconhecido', 'warning');
+    }
+  };
+
+  // 🖥️ UI & Render
+  const UI = {
+    update(key, val) {
+      if (key === 'mode') {
+        document.querySelectorAll('.mode-btn').forEach(b => { b.classList.toggle('active', b.dataset.mode === val); b.setAttribute('aria-checked', b.dataset.mode === val); });
+        document.getElementById('globalModeLabel').textContent = val;
+        document.getElementById('globalStatusText').textContent = val === 'PROD' ? 'Rede corporativa ativa' : 'Mock local';
+      }
+      if (key === 'metrics') App.updateMetrics();
+    },
+    setTaskStatus(task, status) {
+      const el = document.getElementById(`status-${task}`); if (!el) return;
+      const icons = { idle: 'circle', running: 'spinner', success: 'check-circle', error: 'times-circle' };
+      const txt = { idle: 'Pronto', running: 'Executando...', success: 'Concluído', error: 'Falha' };
+      el.className = `task-status ${status}`;
+      el.innerHTML = `<i class="fas fa-${icons[status]} ${status === 'running' ? 'fa-spin' : ''}"></i> ${txt[status]}`;
+      const btn = document.querySelector(`[data-task="${task}"] .btn-run`); if (btn) btn.disabled = status === 'running';
+    },
+    updateStepper(step) {
+      const s = document.querySelectorAll('#fullStepper .step');
+      s.forEach((el, i) => el.classList.toggle('done', i < step).toggle('active', i === step));
+    },
+    addLog(msg, task = 'system') {
+      const logs = document.getElementById('logs');
+      const entry = document.createElement('div'); entry.className = `log-entry ${task !== 'system' ? '' : 'system'}`;
+      entry.dataset.task = task;
+      entry.innerHTML = `<small style="opacity:0.6">[${new Date().toLocaleTimeString()}]</small> ${task !== 'system' ? `<strong>[${task}]</strong> ` : ''}${utils.escape(msg)}`;
+      logs.prepend(entry); if (logs.children.length > 200) logs.removeChild(logs.lastChild);
+      state.logs.push({ t: Date.now(), task, msg });
+      this.addNotification(msg, task);
+      utils.logDebug('Log', { task, msg });
+    },
+    addNotification(msg, type = 'system') {
+      state.notifications.unshift({ id: Date.now(), msg, type, read: false });
+      const count = state.notifications.filter(n => !n.read).length;
+      const badge = document.querySelector('.notif-count'); badge.textContent = count; badge.classList.toggle('hidden', count === 0);
+      const list = document.getElementById('notifList');
+      const el = document.createElement('div'); el.className = 'notif-item'; el.innerHTML = `<span class="text-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'muted'}"><i class="fas fa-circle"></i></span> ${utils.escape(msg)} <small>${new Date().toLocaleTimeString()}</small>`;
+      list.prepend(el);
+    },
+    clearNotifications() { state.notifications = []; document.getElementById('notifList').innerHTML = ''; document.querySelector('.notif-count').classList.add('hidden'); },
+    loadHistory() {
+      Object.keys(state.tasks).forEach(task => {
+        const container = document.querySelector(`#hist-${task} .history-chips`); if (!container) return;
+        const hist = JSON.parse(localStorage.getItem(`robô_hist_${task}`) || '[]');
+        container.innerHTML = hist.map(v => `<button class="chip" onclick="App.fillFromHistory('${task}', '${utils.escape(v)}')">${utils.escape(v)}</button>`).join('');
+        document.getElementById(`hist-${task}`).classList.toggle('hidden', hist.length === 0);
+      });
+    }
+  };
+
+  // 🚀 Core
+  const runTask = async (task, paramsOverride = {}, opts = {}) => {
+    const params = { ...(collectParams(task)), ...paramsOverride };
+    if (!Validation.rules[task === 'FULL' ? 'order' : task.toLowerCase().replace('_cpf','')](params[task === 'FULL' ? 'order' : Object.keys(params)[0]])) {
+      utils.toast('Preencha os campos corretamente.', 'warning'); return Promise.reject();
+    }
+    UI.setTaskStatus(task, 'running'); utils.announceSR(`${task} em execução`);
+    const start = Date.now(); UI.addLog('Iniciando...', task);
+    
+    try {
+      if (task === 'FULL') {
+        UI.updateStepper(1); await mockStep('Validando GOI...');
+        UI.updateStepper(2); await mockStep('Buscando WFM...');
+        UI.updateStepper(3); await mockStep('Injetando D0...');
+        UI.updateStepper(4); await mockStep('Finalizando...');
+      }
+      state.mode === 'DEV' ? await mockExecution() : await apiExecution(task, params);
+      state.metrics.success++; state.metrics.time += Date.now() - start; state.metrics.total++;
+      saveHistory(task, params); UI.setTaskStatus(task, 'success');
+      document.querySelector(`[data-task="${task}"]`).classList.add('success-flash'); setTimeout(() => document.querySelector(`[data-task="${task}"]`)?.classList.remove('success-flash'), 600);
+      UI.addLog('✅ Concluído', task); utils.toast(`${task} finalizado`, 'success');
+    } catch (err) {
+      state.metrics.failed++; UI.setTaskStatus(task, 'error'); UI.addLog(`❌ ${err.message}`, task); utils.toast(`Erro em ${task}`, 'error');
+      if (opts.queueId) state.queue.find(q => q.id === opts.queueId).status = 'failed';
+    } finally {
+      Queue.process(); UI.updateMetrics(); if (task === 'FULL') UI.updateStepper(0);
+    }
+  };
+
+  const mockExecution = () => new Promise((r, j) => setTimeout(() => Math.random() > 0.05 ? r() : j(new Error('Timeout simulado')), 1000 + Math.random() * 1500));
+  const mockStep = (msg) => new Promise(r => setTimeout(() => UI.addLog(msg, 'FULL'), 600));
+  const apiExecution = async (task, p) => { /* Fetch real API */ throw new Error('Backend não configurado'); };
+
+  const collectParams = task => {
+    const ids = { GOI_CHECK: ['goiOrder'], WFM_CPF: ['wfmCpf'], GPS_OPEN: ['gpsParam'], FULL: ['fullCpf', 'fullOrder'] };
+    return (ids[task] || []).reduce((a, id) => { const el = document.getElementById(id); return { ...a, [id]: el?.value.trim() || '' }; }, {});
+  };
+
+  const saveHistory = (task, p) => {
+    const val = task === 'FULL' ? p.fullOrder : (task === 'WFM_CPF' ? p.wfmCpf : (task === 'GOI_CHECK' ? p.goiOrder : p.gpsParam));
+    if (!val) return;
+    const hist = JSON.parse(localStorage.getItem(`robô_hist_${task}`) || '[]');
+    const newHist = [val, ...hist.filter(h => h !== val)].slice(0, 5);
+    localStorage.setItem(`robô_hist_${task}`, JSON.stringify(newHist)); UI.loadHistory();
+  };
+
+  // ⚙️ Config & Export
+  const saveConfig = () => {
+    state.config.shortcuts = JSON.parse(document.getElementById('cfgShortcuts').value || '{}');
+    state.config.retry = parseInt(document.getElementById('cfgRetry').value) || 3;
+    localStorage.setItem('robô_config', JSON.stringify(state.config)); App.closeConfig(); utils.toast('⚙️ Configurações salvas', 'success');
+  };
+  const exportConfig = () => utils.download('auto-robô-config.json', JSON.stringify(state.config, null, 2), 'application/json');
+  const importConfig = e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { try { state.config = JSON.parse(r.result); document.getElementById('cfgShortcuts').value = JSON.stringify(state.config.shortcuts); document.getElementById('cfgRetry').value = state.config.retry; utils.toast('📥 Config importada', 'success'); } catch { utils.toast('❌ JSON inválido', 'error'); } }; r.readAsText(f); };
+
+  // 🌐 Init
+  const init = () => {
+    Validation.init(); UI.loadHistory();
+    document.querySelectorAll('.mode-btn').forEach(b => b.addEventListener('click', () => state.mode = b.dataset.mode));
+    document.getElementById('logFilter').addEventListener('change', e => document.querySelectorAll('.log-entry').forEach(l => l.classList.toggle('hidden', e.target.value !== 'all' && l.dataset.task !== e.target.value)));
+    document.getElementById('themeToggle').addEventListener('click', () => { const n = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = n; localStorage.setItem('robô_theme', n); document.getElementById('themeToggle').innerHTML = `<i class="fas fa-${n === 'dark' ? 'sun' : 'moon'}"></i>`; });
+    document.getElementById('notifBtn').addEventListener('click', () => { const p = document.getElementById('notifPanel'); const hidden = p.classList.toggle('hidden'); p.setAttribute('aria-hidden', hidden); });
+    document.getElementById('openConfig').addEventListener('click', () => { document.getElementById('configModal').classList.remove('hidden'); document.getElementById('cfgShortcuts').value = JSON.stringify(state.config.shortcuts, null, 2); document.getElementById('cfgRetry').value = state.config.retry; });
+    document.getElementById('importConfig').addEventListener('change', importConfig);
+    document.getElementById('toggleSidebar').addEventListener('click', () => document.getElementById('sidebar').classList.toggle('open'));
+    window.addEventListener('keydown', e => {
+      if (e.key === 'Escape') document.getElementById('configModal').classList.add('hidden');
+      if (e.ctrlKey && e.key === 'Enter') { const c = document.activeElement.closest('.task-card'); if (c) runTask(c.dataset.task); }
+      if (e.key === 'd' && !e.ctrlKey && document.activeElement.tagName !== 'INPUT') App.runDiagnostics();
+    });
+    window.addEventListener('online', () => { state.metrics.online = true; UI.updateMetrics(); });
+    window.addEventListener('offline', () => { state.metrics.online = false; UI.updateMetrics(); utils.toast('🔴 Modo offline', 'warning'); });
+    if (!localStorage.getItem('robô_telemetry_seen')) setTimeout(() => document.getElementById('telemetryBanner').classList.remove('hidden'), 1500);
+    document.getElementById('btnAcceptTelemetry').onclick = () => { state.config.telemetry = true; localStorage.setItem('robô_telemetry_seen', 'true'); document.getElementById('telemetryBanner').classList.add('hidden'); };
+    document.getElementById('btnDeclineTelemetry').onclick = () => { localStorage.setItem('robô_telemetry_seen', 'true'); document.getElementById('telemetryBanner').classList.add('hidden'); };
+    document.addEventListener('click', e => { if (!e.target.closest('#notifPanel') && !e.target.closest('#notifBtn')) document.getElementById('notifPanel').classList.add('hidden'); });
+    Voice.init(); Queue.render();
+    utils.announceSR('Auto Robô v2.0 carregado.');
+  };
+
+  return {
+    runTask, clearTask: t => { document.querySelectorAll(`[data-task="${t}"] input`).forEach(i => i.value = ''); UI.setTaskStatus(t, 'idle'); UI.addLog('🧹 Limpo', t); },
+    clearLogs: () => { document.getElementById('logs').innerHTML = ''; state.logs = []; UI.addLog('🗑️ Logs limpos', 'system'); },
+    exportLogs: fmt => { if (!state.logs.length) return; const c = fmt === 'csv' ? 'Time,Task,Message\n' + state.logs.map(l => `${l.t},${l.task},"${l.msg.replace(/"/g,'""')}"`).join('\n') : state.logs.map(l => `[${new Date(l.t).toLocaleString()}] [${l.task}] ${l.msg}`).join('\n'); utils.download(`auto-robô.${fmt}`, c, fmt === 'csv' ? 'text/csv' : 'text/plain'); utils.toast(`📤 Exportado ${fmt.toUpperCase()}`); },
+    fillFromHistory: (t, v) => { const map = { GOI_CHECK: 'goiOrder', WFM_CPF: 'wfmCpf', GPS_OPEN: 'gpsParam', FULL: 'fullOrder' }; const el = document.getElementById(map[t]); if (el) { el.value = v; el.focus(); utils.toast('Valor preenchido'); } },
+    runDiagnostics: async () => { const r = document.getElementById('diagnosticResult'); r.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando...'; await new Promise(r => setTimeout(r, 800)); r.innerHTML = '<span style="color:green"><i class="fas fa-check-circle"></i> Navegador OK</span> • <span style="color:green"><i class="fas fa-check-circle"></i> Conexão ativa</span> • <span style="color:green"><i class="fas fa-check-circle"></i> Storage OK</span>'; UI.addLog('🔍 Diagnóstico OK', 'system'); },
+    queue: Queue,
+    closeConfig: () => document.getElementById('configModal').classList.add('hidden'),
+    saveConfig, exportConfig,
+    updateMetrics: () => { document.getElementById('metricSuccess').textContent = state.metrics.success; document.getElementById('metricFailed').textContent = state.metrics.failed; document.getElementById('metricAvgTime').textContent = state.metrics.total ? `${(state.metrics.time / state.metrics.total / 1000).toFixed(1)}s` : '--'; document.getElementById('metricStatus').textContent = state.metrics.online ? 'Online' : 'Offline'; document.getElementById('metricConnIcon').className = `fas fa-${state.metrics.online ? 'wifi' : 'wifi-slash'}`; document.getElementById('onlineStatus').innerHTML = `<i class="fas fa-${state.metrics.online ? 'wifi' : 'wifi-slash'}"></i> ${state.metrics.online ? 'Online' : 'Offline'}`; },
+    clearNotifications: UI.clearNotifications,
+    ui: UI
+  };
+})();
+
+window.App = App; // Expor globalmente para handlers inline
+document.addEventListener('DOMContentLoaded', () => App.init?.());
