@@ -1,379 +1,384 @@
-// 🎯 Estado Global
-const AppState = {
-  mode: 'DEV', // DEV | PROD
-  tasks: {
-    GOI_CHECK: { status: 'idle', element: null },
-    WFM_CPF: { status: 'idle', element: null },
-    GPS_OPEN: { status: 'idle', element: null },
-    FULL: { status: 'idle', element: null }
-  }
-};
+/**
+ * 🤖 Auto Robô v2.0 | GOI Style
+ * Frontend Modular, Acessível e Otimizado
+ */
 
-// 🔌 Socket.io (se aplicável)
-const socket = io ? io() : null;
+const App = (() => {
+  // 📦 Estado Global
+  const state = {
+    mode: localStorage.getItem('robô_mode') || 'DEV',
+    tasks: {
+      GOI_CHECK: { status: 'idle', params: {}, history: [] },
+      WFM_CPF: { status: 'idle', params: {}, history: [] },
+      GPS_OPEN: { status: 'idle', params: {}, history: [] },
+      FULL: { status: 'idle', params: {}, history: [] }
+    },
+    logs: [],
+    metrics: { success: 0, failed: 0, totalTime: 0, count: 0, online: navigator.onLine },
+    telemetry: JSON.parse(localStorage.getItem('robô_telemetry') || 'false'),
+    debug: false,
+    activeTask: null
+  };
 
-// 🚀 Inicialização
-document.addEventListener('DOMContentLoaded', () => {
-  initModeSelector();
-  initTaskCards();
-  initMasks();
-  initKeyboardShortcuts();
-  updateGlobalStatus();
-  
-  log('🤖 Auto Robô v2.0 inicializado!', 'system');
-});
-
-// 🎛️ Seleção de Modo Global
-function initModeSelector() {
-  document.querySelectorAll('.mode-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const mode = e.currentTarget.dataset.mode;
-      setGlobalMode(mode);
-    });
-  });
-}
-
-function setGlobalMode(mode) {
-  AppState.mode = mode;
-  
-  // Atualiza UI
-  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-  document.querySelector(`.mode-btn[data-mode="${mode}"]`).classList.add('active');
-  
-  // Atualiza indicadores
-  document.getElementById('modeIndicator').textContent = mode;
-  document.getElementById('globalStatusText').innerHTML = 
-    `Modo: <strong>${mode}</strong> • ${mode === 'DEV' ? 'Mock Local' : 'Rede Corporativa'}`;
-  
-  // Atualiza status dot
-  const dot = document.getElementById('globalStatusDot');
-  dot.className = `status-dot ${mode === 'PROD' ? 'ready' : 'idle'}`;
-  
-  log(`🔧 Modo alterado para: <strong>${mode}</strong>`, 'system');
-  
-  // Notifica backend se houver socket
-  if (socket) socket.emit('mode:change', { mode });
-}
-
-// 🧩 Inicialização dos Cards de Tarefa
-function initTaskCards() {
-  Object.keys(AppState.tasks).forEach(taskKey => {
-    const card = document.querySelector(`.task-card[data-task="${taskKey}"]`);
-    if (card) {
-      AppState.tasks[taskKey].element = card;
-      
-      // Máscara específica por task
-      if (taskKey === 'WFM_CPF' || taskKey === 'FULL') {
-        const input = card.querySelector('input[id*="Cpf"]');
-        if (input) input.addEventListener('input', formatCPF);
-      }
-    }
-  });
-}
-
-// 🎭 Máscaras de Input
-function initMasks() {
-  // CPF: 000.000.000-00
-  document.querySelectorAll('input[id*="Cpf"]').forEach(input => {
-    input.addEventListener('input', formatCPF);
-  });
-  
-  // Ordem: remove caracteres especiais, mantém números e letras
-  document.querySelectorAll('input[id*="Order"]').forEach(input => {
-    input.addEventListener('input', (e) => {
-      e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9\-]/g, '');
-    });
-  });
-}
-
-function formatCPF(e) {
-  let value = e.target.value.replace(/\D/g, '').slice(0, 11);
-  value = value.replace(/(\d{3})(\d)/, '$1.$2');
-  value = value.replace(/(\d{3})(\d)/, '$1.$2');
-  value = value.replace(/(\d{3})(\d{1,2})/, '$1-$2');
-  e.target.value = value;
-}
-
-// ▶️ Executar Task
-async function runTask(taskKey) {
-  const task = AppState.tasks[taskKey];
-  if (!task || task.status === 'running') return;
-  
-  // Coleta parâmetros
-  const params = collectTaskParams(taskKey);
-  
-  // Validação básica
-  if (!validateTaskParams(taskKey, params)) return;
-  
-  // Atualiza UI para "executando"
-  setTaskStatus(taskKey, 'running');
-  log(`🚀 Iniciando <strong>${getTaskLabel(taskKey)}</strong>...`, taskKey);
-  
-  try {
-    if (AppState.mode === 'DEV') {
-      // Mock para desenvolvimento
-      await mockExecution(taskKey, params);
-    } else {
-      // Chamada real para backend
-      await executeTaskAPI(taskKey, params);
-    }
-    
-    setTaskStatus(taskKey, 'success');
-    log(`✅ <strong>${getTaskLabel(taskKey)}</strong> concluído com sucesso!`, taskKey);
-    
-  } catch (error) {
-    setTaskStatus(taskKey, 'error');
-    log(`❌ Erro em <strong>${getTaskLabel(taskKey)}</strong>: ${error.message}`, taskKey);
-    console.error(error);
-  }
-}
-
-// 📥 Coletar parâmetros da task
-function collectTaskParams(taskKey) {
-  const params = {};
-  
-  switch(taskKey) {
-    case 'GOI_CHECK':
-      params.order = document.getElementById('goiOrder')?.value.trim();
-      break;
-    case 'WFM_CPF':
-      params.cpf = document.getElementById('wfmCpf')?.value.replace(/\D/g, '');
-      break;
-    case 'GPS_OPEN':
-      params.param = document.getElementById('gpsParam')?.value.trim();
-      break;
-    case 'FULL':
-      params.cpf = document.getElementById('fullCpf')?.value.replace(/\D/g, '');
-      params.order = document.getElementById('fullOrder')?.value.trim();
-      break;
-  }
-  
-  return params;
-}
-
-// ✅ Validação de parâmetros
-function validateTaskParams(taskKey, params) {
-  switch(taskKey) {
-    case 'GOI_CHECK':
-      if (!params.order) {
-        alert('⚠️ Informe o número da ordem para consultar no GOI.');
-        document.getElementById('goiOrder')?.focus();
-        return false;
-      }
-      break;
-    case 'WFM_CPF':
-      if (!params.cpf || params.cpf.length !== 11) {
-        alert('⚠️ Informe um CPF válido (11 dígitos).');
-        document.getElementById('wfmCpf')?.focus();
-        return false;
-      }
-      break;
-    case 'FULL':
-      if (!params.cpf || params.cpf.length !== 11) {
-        alert('⚠️ Informe um CPF válido para automação completa.');
-        document.getElementById('fullCpf')?.focus();
-        return false;
-      }
-      if (!params.order) {
-        alert('⚠️ Informe o número da ordem para automação completa.');
-        document.getElementById('fullOrder')?.focus();
-        return false;
-      }
-      break;
-  }
-  return true;
-}
-
-// 🔄 Atualizar status visual da task
-function setTaskStatus(taskKey, status) {
-  const task = AppState.tasks[taskKey];
-  if (!task) return;
-  
-  task.status = status;
-  
-  const statusEl = document.getElementById(`${taskKey.toLowerCase().replace('_','')}Status`);
-  const btnRun = task.element?.querySelector('.btn-run');
-  
-  if (statusEl) {
-    statusEl.className = `task-status ${status}`;
-    statusEl.innerHTML = {
-      idle: '<i class="fas fa-circle"></i> Pronto',
-      running: '<i class="fas fa-spinner fa-spin"></i> Executando...',
-      success: '<i class="fas fa-check-circle"></i> Concluído',
-      error: '<i class="fas fa-exclamation-circle"></i> Erro'
-    }[status];
-  }
-  
-  if (btnRun) {
-    btnRun.disabled = (status === 'running');
-  }
-}
-
-// 🧹 Limpar task
-function clearTask(taskKey) {
-  const inputs = document.querySelector(`.task-card[data-task="${taskKey}"]`)?.querySelectorAll('input');
-  inputs?.forEach(input => input.value = '');
-  setTaskStatus(taskKey, 'idle');
-  log(`🧹 Campos de <strong>${getTaskLabel(taskKey)}</strong> limpos.`, taskKey);
-}
-
-// 📝 Sistema de Logs
-function log(message, taskKey = 'system') {
-  const logsEl = document.getElementById('logs');
-  if (!logsEl) return;
-  
-  const entry = document.createElement('div');
-  entry.className = `log-entry ${taskKey !== 'system' ? '' : 'system'}`;
-  entry.setAttribute('data-task', taskKey);
-  entry.innerHTML = `
-    <small style="opacity:0.7">[${new Date().toLocaleTimeString()}]</small>
-    ${taskKey !== 'system' ? `<strong>[${getTaskLabel(taskKey)}]</strong> ` : ''}
-    ${message}
-  `;
-  
-  logsEl.prepend(entry);
-  
-  // Limita quantidade de logs
-  if (logsEl.children.length > 100) {
-    logsEl.removeChild(logsEl.lastChild);
-  }
-}
-
-function filterLogs() {
-  const filter = document.getElementById('logFilter').value;
-  document.querySelectorAll('.log-entry').forEach(entry => {
-    const task = entry.dataset.task;
-    entry.classList.toggle('hidden', filter !== 'all' && task !== filter && task !== 'system');
-  });
-}
-
-function clearLogs() {
-  document.getElementById('logs').innerHTML = '';
-  log('🗑️ Logs limpos pelo usuário.', 'system');
-}
-
-// 🎹 Atalhos de Teclado
-function initKeyboardShortcuts() {
-  document.addEventListener('keydown', (e) => {
-    // Ctrl + 1/2/3 para focar inputs
-    if (e.ctrlKey && ['1','2','3'].includes(e.key)) {
-      e.preventDefault();
-      const targets = {
-        '1': 'goiOrder',
-        '2': 'wfmCpf', 
-        '3': 'gpsParam'
+  // 🔧 Utilitários
+  const utils = {
+    escape: (str) => {
+      if (typeof str !== 'string') return '';
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    },
+    debounce: (fn, delay = 300) => {
+      let timer;
+      return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn(...args), delay);
       };
-      document.getElementById(targets[e.key])?.focus();
+    },
+    formatCPF: (value) => {
+      const nums = value.replace(/\D/g, '').slice(0, 11);
+      return nums.replace(/(\d{3})(\d)/, '$1.$2')
+                 .replace(/(\d{3})(\d)/, '$1.$2')
+                 .replace(/(\d{3})(\d{1,2})/, '$1-$2');
+    },
+    announceSR: (msg) => {
+      const el = document.createElement('div');
+      el.setAttribute('role', 'status');
+      el.setAttribute('aria-live', 'polite');
+      el.className = 'sr-only';
+      el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 2000);
+    },
+    showToast: (msg, type = 'info') => {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'times-circle' : 'info-circle'}"></i><span>${utils.escape(msg)}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(100%)';
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    },
+    download: (filename, content, type) => {
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    },
+    debugLog: (msg, data) => {
+      if (!state.debug) return;
+      const panel = document.getElementById('debugConsole');
+      panel.textContent += `\n[${new Date().toLocaleTimeString()}] ${msg}\n${JSON.stringify(data || '', null, 2)}\n---`;
+      panel.scrollTop = panel.scrollHeight;
     }
+  };
+
+  // 🎛️ Core Functions
+  const init = () => {
+    cacheDOM();
+    applyTheme();
+    bindEvents();
+    loadState();
+    updateMetrics();
+    updateUI();
+    utils.announceSR('Auto Robô v2.0 carregado com sucesso.');
+    if (!localStorage.getItem('robô_telemetry_seen')) {
+      setTimeout(() => document.getElementById('telemetryBanner').classList.remove('hidden'), 1500);
+    }
+  };
+
+  const cacheDOM = () => {
+    document.querySelectorAll('input[id*="Cpf"]').forEach(i => i.addEventListener('input', e => e.target.value = utils.formatCPF(e.target.value)));
+    document.querySelectorAll('input[id*="Order"]').forEach(i => i.addEventListener('input', e => e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9\-]/g, '')));
+  };
+
+  const loadState = () => {
+    document.querySelectorAll(`.mode-btn[data-mode="${state.mode}"]`).forEach(b => b.classList.add('active'));
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === state.mode));
+    document.getElementById('globalModeLabel').textContent = state.mode;
+    loadHistoryChips();
+  };
+
+  const updateUI = () => {
+    const dot = document.getElementById('globalStatusDot');
+    const txt = document.getElementById('globalStatusText');
+    dot.className = `status-dot ${state.mode === 'PROD' ? 'ready' : 'idle'}`;
+    txt.textContent = state.mode === 'PROD' ? 'Ambiente: Produção • Conexão segura ativa' : 'Ambiente: Desenvolvimento • Mock local ativo';
+  };
+
+  const setTaskStatus = (taskKey, status) => {
+    state.tasks[taskKey].status = status;
+    const el = document.getElementById(`status-${taskKey}`);
+    if (!el) return;
+    const icons = { idle: 'circle', running: 'spinner', success: 'check-circle', error: 'times-circle' };
+    const text = { idle: 'Pronto', running: 'Executando...', success: 'Concluído', error: 'Falha' };
+    el.className = `task-status ${status}`;
+    el.innerHTML = `<i class="fas fa-${icons[status]} ${status === 'running' ? 'fa-spin' : ''}"></i> ${text[status]}`;
     
-    // Ctrl + Enter para executar task com foco
-    if (e.ctrlKey && e.key === 'Enter') {
-      e.preventDefault();
-      const activeInput = document.activeElement;
-      const taskCard = activeInput?.closest('.task-card');
-      if (taskCard) {
-        const taskKey = taskCard.dataset.task;
-        runTask(taskKey);
-      }
-    }
-  });
-}
+    const btn = document.querySelector(`[data-task="${taskKey}"] .btn-run`);
+    if (btn) btn.disabled = status === 'running';
+  };
 
-// 🔍 Diagnóstico
-async function runDiagnostics() {
-  const resultEl = document.getElementById('diagnosticResult');
-  resultEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando...';
-  
-  const checks = [
-    { name: 'Conexão com Backend', test: () => fetch('/api/health').then(r => r.ok) },
-    { name: 'Socket.IO', test: () => Promise.resolve(!!socket?.connected) },
-    { name: 'Permissões de Clipboard', test: () => Promise.resolve(navigator.clipboard !== undefined) }
-  ];
-  
-  let results = [];
-  
-  for (const check of checks) {
+  const addLog = (msg, task = 'system') => {
+    const logs = document.getElementById('logs');
+    const entry = document.createElement('div');
+    entry.className = `log-entry ${task !== 'system' ? '' : 'system'}`;
+    entry.dataset.task = task;
+    entry.innerHTML = `<small style="opacity:0.6">[${new Date().toLocaleTimeString()}]</small> ${task !== 'system' ? `<strong>[${task}]</strong> ` : ''}${utils.escape(msg)}`;
+    logs.prepend(entry);
+    if (logs.children.length > 150) logs.removeChild(logs.lastChild);
+    state.logs.push({ time: Date.now(), task, msg });
+    if (state.debug) utils.debugLog(`[LOG] ${msg}`, { task });
+  };
+
+  const track = (event, props = {}) => {
+    if (!state.telemetry) return;
     try {
-      const ok = await check.test();
-      results.push(`<span style="color:${ok ? 'green' : 'red'}">
-        <i class="fas fa-${ok ? 'check' : 'times'}-circle"></i> ${check.name}
-      </span>`);
-    } catch {
-      results.push(`<span style="color:red"><i class="fas fa-times-circle"></i> ${check.name}</span>`);
+      navigator.sendBeacon('/api/telemetry', JSON.stringify({ event, props, ts: Date.now(), ua: navigator.userAgent }));
+    } catch {}
+  };
+
+  // ▶️ Execução de Tarefas
+  const runTask = async (taskKey) => {
+    if (state.tasks[taskKey].status === 'running') return;
+    const params = collectParams(taskKey);
+    if (!validateParams(taskKey, params)) return;
+
+    state.activeTask = taskKey;
+    setTaskStatus(taskKey, 'running');
+    const start = Date.now();
+    addLog(`Iniciando execução...`, taskKey);
+    utils.announceSR(`${taskKey} em execução`);
+
+    try {
+      state.mode === 'DEV' ? await mockExecution(taskKey, params) : await apiExecution(taskKey, params);
+      state.metrics.success++;
+      state.metrics.totalTime += Date.now() - start;
+      state.metrics.count++;
+      saveToHistory(taskKey, params);
+      setTaskStatus(taskKey, 'success');
+      utils.showToast(`${taskKey} concluído com sucesso`, 'success');
+      addLog('✅ Concluído com sucesso', taskKey);
+      track('task_success', { task: taskKey, time: Date.now() - start });
+    } catch (err) {
+      state.metrics.failed++;
+      setTaskStatus(taskKey, 'error');
+      utils.showToast(`Erro em ${taskKey}: ${err.message}`, 'error');
+      addLog(`❌ Falha: ${err.message}`, taskKey);
+      track('task_error', { task: taskKey, error: err.message });
+    } finally {
+      state.activeTask = null;
+      updateMetrics();
     }
-  }
-  
-  resultEl.innerHTML = results.join(' • ');
-  log('🔍 Diagnóstico executado.', 'system');
-}
+  };
 
-// 🎭 Mock para DEV
-function mockExecution(taskKey, params) {
-  return new Promise(resolve => {
-    const delay = 1500 + Math.random() * 2000;
-    setTimeout(() => {
-      // Simula 90% de sucesso
-      if (Math.random() > 0.1) {
-        resolve({ success: true, data: { mock: true, task: taskKey, params } });
-      } else {
-        throw new Error('Erro simulado (10% de chance em DEV)');
+  const collectParams = (taskKey) => {
+    const p = {};
+    const map = {
+      GOI_CHECK: { order: 'goiOrder' },
+      WFM_CPF: { cpf: 'wfmCpf' },
+      GPS_OPEN: { param: 'gpsParam' },
+      FULL: { cpf: 'fullCpf', order: 'fullOrder' }
+    };
+    Object.entries(map[taskKey] || {}).forEach(([key, id]) => {
+      const el = document.getElementById(id);
+      p[key] = el ? el.value.trim() : '';
+    });
+    return p;
+  };
+
+  const validateParams = (taskKey, p) => {
+    const rules = {
+      GOI_CHECK: () => !!p.order,
+      WFM_CPF: () => /^(\d{3}\.\d{3}\.\d{3}-\d{2}|\d{11})$/.test(p.cpf),
+      GPS_OPEN: () => true,
+      FULL: () => !!p.cpf && !!p.order
+    };
+    const valid = rules[taskKey]();
+    if (!valid) {
+      utils.showToast('Preencha os campos obrigatórios corretamente.', 'warning');
+      utils.announceSR('Erro de validação. Verifique os campos.');
+      track('validation_error', { task: taskKey });
+    }
+    return valid;
+  };
+
+  const mockExecution = (task, params) => new Promise((res, rej) => {
+    const delay = 800 + Math.random() * 1500;
+    setTimeout(() => Math.random() > 0.08 ? res({ ok: true }) : rej(new Error('Timeout simulado')), delay);
+  });
+
+  const apiExecution = async (task, params) => {
+    // Placeholder para integração real
+    // return fetch(`/api/task/${task}`, { method: 'POST', body: JSON.stringify(params) }).then(r => r.json());
+    throw new Error('API não configurada. Ative o modo DEV para testes.');
+  };
+
+  const saveToHistory = (task, params) => {
+    const key = task === 'FULL' ? params.order : (task === 'WFM_CPF' ? params.cpf : (task === 'GOI_CHECK' ? params.order : params.param));
+    if (!key) return;
+    state.tasks[task].history = [key, ...state.tasks[task].history.filter(h => h !== key)].slice(0, 5);
+    localStorage.setItem(`robô_hist_${task}`, JSON.stringify(state.tasks[task].history));
+    loadHistoryChips();
+  };
+
+  const loadHistoryChips = () => {
+    Object.keys(state.tasks).forEach(task => {
+      const container = document.querySelector(`#hist-${task} .history-chips`);
+      if (!container) return;
+      const hist = JSON.parse(localStorage.getItem(`robô_hist_${task}`) || '[]');
+      state.tasks[task].history = hist;
+      container.innerHTML = hist.map(v => `<button class="chip" onclick="App.fillFromHistory('${task}', '${utils.escape(v)}')">${utils.escape(v)}</button>`).join('');
+      document.getElementById(`hist-${task}`).classList.toggle('hidden', hist.length === 0);
+    });
+  };
+
+  const fillFromHistory = (task, val) => {
+    const inputs = {
+      GOI_CHECK: 'goiOrder', WFM_CPF: 'wfmCpf', GPS_OPEN: 'gpsParam',
+      FULL: val.includes('-') ? 'fullOrder' : 'fullCpf'
+    };
+    const el = document.getElementById(inputs[task]);
+    if (el) { el.value = val; el.focus(); utils.showToast('Valor preenchido do histórico'); }
+  };
+
+  // 🧹 Limpeza & Exportação
+  const clearTask = (task) => {
+    Object.keys({ GOI_CHECK: 'goiOrder', WFM_CPF: 'wfmCpf', GPS_OPEN: 'gpsParam', FULL: 'fullCpf,fullOrder' }[task].split(',')).forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    setTaskStatus(task, 'idle');
+    addLog('🧹 Campos limpos', task);
+  };
+
+  const clearLogs = () => { document.getElementById('logs').innerHTML = ''; state.logs = []; addLog('🗑️ Logs limpos', 'system'); };
+
+  const exportLogs = () => {
+    if (!state.logs.length) return utils.showToast('Nenhum log para exportar', 'warning');
+    const csv = 'Time,Task,Message\n' + state.logs.map(l => `${l.time},${l.task},${l.msg.replace(/"/g, '""')}`).join('\n');
+    utils.download(`auto-robô-logs-${Date.now()}.csv`, csv, 'text/csv');
+    utils.showToast('Logs exportados com sucesso', 'success');
+  };
+
+  const exportSingle = (task) => {
+    // Implementação futura baseada no retorno da API
+    utils.showToast(`Exportação de ${task} disponível após execução`, 'info');
+  };
+
+  const updateMetrics = () => {
+    document.getElementById('metricSuccess').textContent = state.metrics.success;
+    document.getElementById('metricFailed').textContent = state.metrics.failed;
+    document.getElementById('metricAvgTime').textContent = state.metrics.count ? `${(state.metrics.totalTime / state.metrics.count / 1000).toFixed(1)}s` : '--';
+    document.getElementById('metricStatus').textContent = state.metrics.online ? 'Online' : 'Offline';
+    document.getElementById('metricConnectionIcon').className = `fas fa-${state.metrics.online ? 'wifi' : 'wifi-slash'}`;
+  };
+
+  // 🛡️ Diagnóstico & Telemetria
+  const runDiagnostics = async () => {
+    const res = document.getElementById('diagnosticResult');
+    res.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando...';
+    const checks = [
+      { name: 'LocalStorage', fn: () => { localStorage.setItem('_t', '1'); localStorage.removeItem('_t'); return true; } },
+      { name: 'Navegador Moderno', fn: () => typeof window.fetch !== 'undefined' },
+      { name: 'Conexão', fn: () => navigator.onLine }
+    ];
+    const results = checks.map(c => `<span style="color:${c.fn() ? 'green' : 'red'}"><i class="fas fa-${c.fn() ? 'check' : 'times'}-circle"></i> ${c.name}</span>`);
+    res.innerHTML = results.join(' • ');
+    addLog('🔍 Diagnóstico executado', 'system');
+    track('diagnostic_run');
+  };
+
+  const bindEvents = () => {
+    // Mode Selector
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.mode-btn').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-checked', 'false'); });
+        btn.classList.add('active');
+        btn.setAttribute('aria-checked', 'true');
+        state.mode = btn.dataset.mode;
+        localStorage.setItem('robô_mode', state.mode);
+        document.getElementById('globalModeLabel').textContent = state.mode;
+        updateUI();
+        addLog(`🔧 Modo alterado para: ${state.mode}`, 'system');
+        track('mode_change', { mode: state.mode });
+      });
+    });
+
+    // Log Filter
+    document.getElementById('logFilter').addEventListener('change', (e) => {
+      document.querySelectorAll('.log-entry').forEach(l => {
+        l.classList.toggle('hidden', e.target.value !== 'all' && l.dataset.task !== e.target.value);
+      });
+    });
+
+    // Theme
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      const html = document.documentElement;
+      html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('robô_theme', html.dataset.theme);
+      document.getElementById('themeToggle').innerHTML = `<i class="fas fa-${html.dataset.theme === 'dark' ? 'sun' : 'moon'}"></i>`;
+    });
+
+    // Debug
+    document.getElementById('debugToggle').addEventListener('click', () => {
+      state.debug = !state.debug;
+      document.getElementById('debugPanel').classList.toggle('hidden', !state.debug);
+      document.getElementById('debugPanel').setAttribute('aria-hidden', !state.debug);
+      addLog(state.debug ? '🐛 Debug ativado' : '🐛 Debug desativado', 'system');
+    });
+
+    // Sidebar Toggle
+    document.getElementById('toggleSidebar').addEventListener('click', () => document.getElementById('sidebar').classList.toggle('open'));
+
+    // Telemetry
+    document.getElementById('btnAcceptTelemetry').onclick = () => {
+      state.telemetry = true;
+      localStorage.setItem('robô_telemetry', 'true');
+      localStorage.setItem('robô_telemetry_seen', 'true');
+      document.getElementById('telemetryBanner').classList.add('hidden');
+      utils.showToast('Telemetria ativada. Obrigado!', 'success');
+    };
+    document.getElementById('btnDeclineTelemetry').onclick = () => {
+      localStorage.setItem('robô_telemetry_seen', 'true');
+      document.getElementById('telemetryBanner').classList.add('hidden');
+    };
+
+    // Online/Offline
+    window.addEventListener('online', () => { state.metrics.online = true; updateMetrics(); utils.showToast('🟢 Conexão restaurada', 'success'); });
+    window.addEventListener('offline', () => { state.metrics.online = false; updateMetrics(); utils.showToast('🔴 Modo offline ativado', 'warning'); });
+
+    // Keyboard
+    window.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && ['1','2','3'].includes(e.key)) {
+        e.preventDefault();
+        const map = { '1': 'goiOrder', '2': 'wfmCpf', '3': 'gpsParam' };
+        document.getElementById(map[e.key])?.focus();
       }
-    }, delay);
-  });
-}
+      if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); const active = document.activeElement; const card = active?.closest('.task-card'); if (card) runTask(card.dataset.task); }
+      if (e.key === 'Escape' && state.activeTask) { utils.showToast('Execução cancelada', 'warning'); addLog('🛑 Cancelado pelo usuário', state.activeTask); state.activeTask = null; setTaskStatus(state.activeTask, 'idle'); }
+      if (e.key.toLowerCase() === 'd' && !e.ctrlKey && !e.altKey && document.activeElement.tagName !== 'INPUT') runDiagnostics();
+    });
+  };
 
-// 🌐 Chamada API real (PROD)
-async function executeTaskAPI(taskKey, params) {
-  const response = await fetch('/api/task/execute', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ task: taskKey, params, mode: AppState.mode })
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Erro desconhecido' }));
-    throw new Error(error.message || 'Falha na execução');
-  }
-  
-  return await response.json();
-}
+  const applyTheme = () => {
+    const saved = localStorage.getItem('robô_theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.dataset.theme = saved;
+    document.getElementById('themeToggle').innerHTML = `<i class="fas fa-${saved === 'dark' ? 'sun' : 'moon'}"></i>`;
+  };
 
-// 🏷️ Helpers
-function getTaskLabel(key) {
-  return {
-    'GOI_CHECK': 'GOI',
-    'WFM_CPF': 'WFM',
-    'GPS_OPEN': 'GPS',
-    'FULL': 'FULL'
-  }[key] || key;
-}
+  return { runTask, clearTask, clearLogs, exportLogs, exportSingle, runDiagnostics, fillFromHistory };
+})();
 
-function updateGlobalStatus() {
-  // Atualiza status global baseado nas tasks
-  const allIdle = Object.values(AppState.tasks).every(t => t.status === 'idle');
-  const anyRunning = Object.values(AppState.tasks).some(t => t.status === 'running');
-  
-  const dot = document.getElementById('globalStatusDot');
-  if (anyRunning) {
-    dot.className = 'status-dot running';
-  } else if (allIdle) {
-    dot.className = `status-dot ${AppState.mode === 'PROD' ? 'ready' : 'idle'}`;
-  }
-}
+// 🌍 Global Handlers
+window.addEventListener('unhandledrejection', e => console.error('Promise não tratada:', e.reason));
+window.addEventListener('error', e => console.error('Erro global:', e.error || e.message));
 
-// 📡 Socket Events (se aplicável)
-if (socket) {
-  socket.on('task:progress', (data) => {
-    log(`⏳ ${data.message}`, data.task);
-  });
-  
-  socket.on('task:complete', (data) => {
-    setTaskStatus(data.task, 'success');
-    log(`✅ ${data.message}`, data.task);
-  });
-  
-  socket.on('task:error', (data) => {
-    setTaskStatus(data.task, 'error');
-    log(`❌ ${data.message}`, data.task);
-  });
-}
+// 🚀 Init
+document.addEventListener('DOMContentLoaded', () => {
+  App; // Garante escopo
+});
