@@ -1,197 +1,318 @@
-<!-- 📦 MAIN CONTENT - Versão Refatorada -->
-<main class="main-content">    
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Auto Robô v2.0 - Dashboard de automação corporativa GOI Style">
+  <meta name="theme-color" content="#1e88e5">
+  <title>🤖 Auto Robô v2.0 | GOI Style</title>
   
-  <!-- 🔧 Card: Configuração Global de Modo -->
-  <div class="card card-mode">
-    <div class="card-header alert-primary">
-      <h3><i class="fas fa-sliders-h"></i> Modo de Execução</h3>
-    </div>
-    <div class="card-body">
-      <div class="mode-selector">
-        <button class="mode-btn active" id="btnDev" data-mode="DEV">
-          <i class="fas fa-vial"></i> 
-          <strong>Desenvolvimento</strong>
-          <small>Mock Local • Sem integração real</small>
-        </button>
-        <button class="mode-btn" id="btnProd" data-mode="PROD">
-          <i class="fas fa-building"></i> 
-          <strong>Produção</strong>
-          <small>Rede Corporativa • Integração real</small>
-        </button>
-      </div>
-      <div class="status-bar mt-2">
-        <span class="status-dot idle" id="globalStatusDot"></span>
-        <span id="globalStatusText">Modo: <strong id="modeIndicator">DEV</strong> • Aguardando comando...</span>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="src/css/style.css">
+</head>
+<body>
+
+  <!-- 🔔 Toast Container -->
+  <div id="toastContainer" class="toast-container" aria-live="polite" role="status"></div>
+
+  <!-- 🌐 Consentimento de Telemetria -->
+  <div id="telemetryBanner" class="banner hidden">
+    <div class="banner-content">
+      <i class="fas fa-chart-line"></i>
+      <span>Ativar coleta anônima de uso para melhorar a ferramenta? (opcional)</span>
+      <div class="banner-actions">
+        <button class="btn btn-sm btn-outline" id="btnDeclineTelemetry">Não, obrigado</button>
+        <button class="btn btn-sm btn-primary" id="btnAcceptTelemetry">Ativar</button>
       </div>
     </div>
   </div>
 
-  <!-- 🔍 Card: Consultar GOI -->
-  <div class="card task-card" data-task="GOI_CHECK">
-    <div class="card-header alert-success">
-      <div class="card-header-content">
-        <h3><i class="fas fa-search"></i> Consultar GOI</h3>
-        <span class="badge badge-outline">Ordem/Status</span>
-      </div>
-      <button class="btn-run" onclick="runTask('GOI_CHECK')" title="Executar">
-        <i class="fas fa-play"></i>
-      </button>
-    </div>
-    <div class="card-body">
-      <div class="form-group">
-        <label for="goiOrder">Número da Ordem / ID</label>
-        <input type="text" id="goiOrder" class="form-control" placeholder="Ex: ORD-123456 ou 123456">
-        <small class="form-hint"><i class="fas fa-info-circle"></i> Consulte status de injeção no GOI</small>
-      </div>
-      <div class="task-footer">
-        <span class="task-status idle" id="goiStatus"><i class="fas fa-circle"></i> Pronto</span>
-        <button class="btn btn-sm btn-outline" onclick="clearTask('GOI_CHECK')">
-          <i class="fas fa-eraser"></i> Limpar
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 👤 Card: Buscar WFM por CPF -->
-  <div class="card task-card" data-task="WFM_CPF">
-    <div class="card-header alert-info">
-      <div class="card-header-content">
-        <h3><i class="fas fa-user"></i> Buscar WFM</h3>
-        <span class="badge badge-outline">CPF</span>
-      </div>
-      <button class="btn-run" onclick="runTask('WFM_CPF')" title="Executar">
-        <i class="fas fa-play"></i>
-      </button>
-    </div>
-    <div class="card-body">
-      <div class="form-group">
-        <label for="wfmCpf">CPF do Cliente</label>
-        <input type="text" id="wfmCpf" class="form-control" placeholder="000.000.000-00" maxlength="14">
-        <small class="form-hint"><i class="fas fa-info-circle"></i> Busca e abre cadastro no WFM</small>
-      </div>
-      <div class="task-footer">
-        <span class="task-status idle" id="wfmStatus"><i class="fas fa-circle"></i> Pronto</span>
-        <button class="btn btn-sm btn-outline" onclick="clearTask('WFM_CPF')">
-          <i class="fas fa-eraser"></i> Limpar
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 🌐 Card: Abrir GPS -->
-  <div class="card task-card" data-task="GPS_OPEN">
-    <div class="card-header alert-warning">
-      <div class="card-header-content">
-        <h3><i class="fas fa-map-marked-alt"></i> Abrir GPS</h3>
-        <span class="badge badge-outline">Geoprocessamento</span>
-      </div>
-      <button class="btn-run" onclick="runTask('GPS_OPEN')" title="Executar">
-        <i class="fas fa-play"></i>
-      </button>
-    </div>
-    <div class="card-body">
-      <div class="form-group">
-        <label for="gpsParam">Parâmetro de Abertura <small>(opcional)</small></label>
-        <input type="text" id="gpsParam" class="form-control" placeholder="Ex: coordenadas, ID de região...">
-        <small class="form-hint"><i class="fas fa-info-circle"></i> Deixe em branco para abrir a tela inicial</small>
-      </div>
-      <div class="task-footer">
-        <span class="task-status idle" id="gpsStatus"><i class="fas fa-circle"></i> Pronto</span>
-        <button class="btn btn-sm btn-outline" onclick="clearTask('GPS_OPEN')">
-          <i class="fas fa-eraser"></i> Limpar
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 🤖 Card: Automação Completa (FULL) -->
-  <div class="card task-card task-card-full" data-task="FULL">
-    <div class="card-header alert-danger">
-      <div class="card-header-content">
-        <h3><i class="fas fa-bolt"></i> Automação Completa</h3>
-        <span class="badge badge-outline">GOI + WFM + D0</span>
-      </div>
-      <button class="btn-run" onclick="runTask('FULL')" title="Executar">
-        <i class="fas fa-play"></i>
-      </button>
-    </div>
-    <div class="card-body">
-      <div class="full-inputs">
-        <div class="form-row">
-          <div class="form-group">
-            <label for="fullCpf">CPF do Cliente</label>
-            <input type="text" id="fullCpf" class="form-control" placeholder="000.000.000-00" maxlength="14">
-          </div>
-          <div class="form-group">
-            <label for="fullOrder">Número da Ordem</label>
-            <input type="text" id="fullOrder" class="form-control" placeholder="ORD-123456">
-          </div>
+  <div class="app-layout">
+    <!-- 📋 SIDEBAR -->
+    <aside class="sidebar" id="sidebar" aria-label="Menu de navegação">
+      <div class="sidebar-brand">
+        <i class="fas fa-robot fa-2x"></i>
+        <div>
+          <h3>Auto Robô <small>v2.0</small></h3>
+          <span class="badge badge-muted">GOI Style</span>
         </div>
-        <small class="form-hint"><i class="fas fa-sync-alt"></i> Executa fluxo completo: valida GOI → busca WFM → injeta D0</small>
       </div>
-      <div class="task-footer">
-        <span class="task-status idle" id="fullStatus"><i class="fas fa-circle"></i> Pronto</span>
-        <button class="btn btn-sm btn-outline" onclick="clearTask('FULL')">
-          <i class="fas fa-eraser"></i> Limpar
-        </button>
+      
+      <nav class="sidebar-menu">
+        <a class="nav-item active" href="#dashboard"><i class="fas fa-home"></i> Dashboard</a>
+        <a class="nav-item" href="#historico"><i class="fas fa-history"></i> Histórico</a>
+        <a class="nav-item" href="#config"><i class="fas fa-cog"></i> Configurações</a>
+        
+        <div class="nav-divider"></div>
+        <div class="nav-label">Atalhos Rápidos</div>
+        <a class="nav-item" href="#task-GOI_CHECK"><i class="fas fa-search"></i> Consultar GOI</a>
+        <a class="nav-item" href="#task-WFM_CPF"><i class="fas fa-user"></i> Buscar WFM</a>
+        <a class="nav-item" href="#task-GPS_OPEN"><i class="fas fa-map-marked-alt"></i> Abrir GPS</a>
+        <a class="nav-item" href="#task-FULL"><i class="fas fa-bolt"></i> Automação Completa</a>
+      </nav>
+      
+      <div class="sidebar-footer">
+        <small>🔐 Modo: <span id="globalModeLabel">DEV</span></small>
+        <small>👤 Tiago Santos</small>
       </div>
+    </aside>
+
+    <!-- 📦 MAIN WRAPPER -->
+    <div class="main-wrapper">
+      <!-- 🔝 HEADER -->
+      <header class="header">
+        <div class="header-left">
+          <button class="btn btn-icon" id="toggleSidebar" aria-label="Abrir/Fechar menu"><i class="fas fa-bars"></i></button>
+          <h1>Dashboard de Automação</h1>
+          <nav class="breadcrumb" aria-label="Breadcrumb">
+            <a href="#">Home</a> <span aria-hidden="true">/</span> <span>Auto Robô</span>
+          </nav>
+        </div>
+        
+        <div class="header-right">
+          <button class="btn btn-icon" onclick="runDiagnostics()" title="Executar diagnóstico" aria-label="Diagnóstico">
+            <i class="fas fa-stethoscope"></i>
+          </button>
+          <button class="btn btn-icon" id="themeToggle" title="Alternar tema" aria-label="Alternar tema">
+            <i class="fas fa-moon"></i>
+          </button>
+          <button class="btn btn-icon" id="debugToggle" title="Modo Debug (F12)" aria-label="Debug">
+            <i class="fas fa-bug"></i>
+          </button>
+          <div class="user-avatar" title="Perfil do usuário">TS</div>
+        </div>
+      </header>
+
+      <main class="main-content" id="dashboard">
+        
+        <!-- 📊 Métricas Rápidas -->
+        <section class="metrics-grid" aria-label="Métricas de desempenho">
+          <div class="metric-card">
+            <i class="fas fa-check-circle text-success"></i>
+            <span class="metric-value" id="metricSuccess">0</span>
+            <span class="metric-label">Sucessos (hoje)</span>
+          </div>
+          <div class="metric-card">
+            <i class="fas fa-exclamation-triangle text-warning"></i>
+            <span class="metric-value" id="metricFailed">0</span>
+            <span class="metric-label">Falhas (hoje)</span>
+          </div>
+          <div class="metric-card">
+            <i class="fas fa-stopwatch text-primary"></i>
+            <span class="metric-value" id="metricAvgTime">--s</span>
+            <span class="metric-label">Tempo médio</span>
+          </div>
+          <div class="metric-card">
+            <i class="fas fa-wifi" id="metricConnectionIcon"></i>
+            <span class="metric-value" id="metricStatus">Online</span>
+            <span class="metric-label">Conexão</span>
+          </div>
+        </section>
+
+        <!-- 🎛️ Seletor Global de Modo -->
+        <section class="card" id="modeSelectorCard">
+          <div class="card-header">
+            <h2><i class="fas fa-sliders-h"></i> Modo de Execução</h2>
+          </div>
+          <div class="card-body">
+            <div class="mode-selector" role="radiogroup" aria-label="Selecione o ambiente">
+              <button class="mode-btn active" role="radio" aria-checked="true" data-mode="DEV" id="btnDev">
+                <i class="fas fa-vial"></i> <strong>Desenvolvimento</strong>
+                <span>Mock local • Sem integração real</span>
+              </button>
+              <button class="mode-btn" role="radio" aria-checked="false" data-mode="PROD" id="btnProd">
+                <i class="fas fa-building"></i> <strong>Produção</strong>
+                <span>Rede corporativa • Integração real</span>
+              </button>
+            </div>
+            <div class="status-bar mt-2">
+              <span class="status-dot idle" id="globalStatusDot"></span>
+              <span id="globalStatusText">Ambiente configurado. Aguardando comando.</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- 🔧 Grid de Tarefas Independentes -->
+        <section class="tasks-grid" aria-label="Processos de automação">
+          
+          <!-- 🔍 GOI -->
+          <article class="card task-card" id="task-GOI_CHECK" data-task="GOI_CHECK">
+            <div class="card-header">
+              <h3><i class="fas fa-search text-success"></i> Consultar GOI</h3>
+              <button class="btn btn-run" onclick="App.runTask('GOI_CHECK')" aria-label="Executar consulta GOI" title="Executar">
+                <i class="fas fa-play"></i>
+              </button>
+            </div>
+            <div class="card-body">
+              <div class="form-group">
+                <label for="goiOrder">Número da Ordem / ID</label>
+                <input type="text" id="goiOrder" class="form-control" placeholder="Ex: ORD-123456" maxlength="20" aria-describedby="goiHint">
+                <small id="goiHint" class="form-hint"><i class="fas fa-info-circle"></i> Consulta status de injeção</small>
+              </div>
+              <div class="task-history hidden" id="hist-GOI_CHECK">
+                <small><i class="fas fa-clock"></i> Recentes:</small>
+                <div class="history-chips"></div>
+              </div>
+              <div class="task-footer">
+                <span class="task-status idle" id="status-GOI_CHECK"><i class="fas fa-circle"></i> Pronto</span>
+                <div class="task-actions">
+                  <button class="btn btn-sm btn-outline" onclick="App.clearTask('GOI_CHECK')" aria-label="Limpar campos"><i class="fas fa-eraser"></i></button>
+                  <button class="btn btn-sm btn-outline" onclick="App.exportSingle('GOI_CHECK')" title="Exportar resultado"><i class="fas fa-download"></i></button>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- 👤 WFM -->
+          <article class="card task-card" id="task-WFM_CPF" data-task="WFM_CPF">
+            <div class="card-header">
+              <h3><i class="fas fa-user text-info"></i> Buscar WFM</h3>
+              <button class="btn btn-run" onclick="App.runTask('WFM_CPF')" aria-label="Executar busca WFM" title="Executar">
+                <i class="fas fa-play"></i>
+              </button>
+            </div>
+            <div class="card-body">
+              <div class="form-group">
+                <label for="wfmCpf">CPF do Cliente</label>
+                <input type="text" id="wfmCpf" class="form-control" placeholder="000.000.000-00" maxlength="14" aria-describedby="cpfHint" autocomplete="off">
+                <small id="cpfHint" class="form-hint"><i class="fas fa-shield-alt"></i> Busca e abre cadastro no WFM</small>
+              </div>
+              <div class="task-history hidden" id="hist-WFM_CPF">
+                <small><i class="fas fa-clock"></i> Recentes:</small>
+                <div class="history-chips"></div>
+              </div>
+              <div class="task-footer">
+                <span class="task-status idle" id="status-WFM_CPF"><i class="fas fa-circle"></i> Pronto</span>
+                <div class="task-actions">
+                  <button class="btn btn-sm btn-outline" onclick="App.clearTask('WFM_CPF')" aria-label="Limpar campos"><i class="fas fa-eraser"></i></button>
+                  <button class="btn btn-sm btn-outline" onclick="App.exportSingle('WFM_CPF')" title="Exportar resultado"><i class="fas fa-download"></i></button>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- 🌐 GPS -->
+          <article class="card task-card" id="task-GPS_OPEN" data-task="GPS_OPEN">
+            <div class="card-header">
+              <h3><i class="fas fa-map-marked-alt text-warning"></i> Abrir GPS</h3>
+              <button class="btn btn-run" onclick="App.runTask('GPS_OPEN')" aria-label="Executar abertura GPS" title="Executar">
+                <i class="fas fa-play"></i>
+              </button>
+            </div>
+            <div class="card-body">
+              <div class="form-group">
+                <label for="gpsParam">Parâmetro de Abertura <small>(opcional)</small></label>
+                <input type="text" id="gpsParam" class="form-control" placeholder="Coordenadas ou ID de região" aria-describedby="gpsHint">
+                <small id="gpsHint" class="form-hint"><i class="fas fa-info-circle"></i> Deixe em branco para tela inicial</small>
+              </div>
+              <div class="task-history hidden" id="hist-GPS_OPEN">
+                <small><i class="fas fa-clock"></i> Recentes:</small>
+                <div class="history-chips"></div>
+              </div>
+              <div class="task-footer">
+                <span class="task-status idle" id="status-GPS_OPEN"><i class="fas fa-circle"></i> Pronto</span>
+                <div class="task-actions">
+                  <button class="btn btn-sm btn-outline" onclick="App.clearTask('GPS_OPEN')" aria-label="Limpar campos"><i class="fas fa-eraser"></i></button>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- 🤖 FULL -->
+          <article class="card task-card task-card-full" id="task-FULL" data-task="FULL">
+            <div class="card-header">
+              <h3><i class="fas fa-bolt text-danger"></i> Automação Completa</h3>
+              <button class="btn btn-run" onclick="App.runTask('FULL')" aria-label="Executar automação completa" title="Executar">
+                <i class="fas fa-play"></i>
+              </button>
+            </div>
+            <div class="card-body">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="fullCpf">CPF do Cliente</label>
+                  <input type="text" id="fullCpf" class="form-control" placeholder="000.000.000-00" maxlength="14">
+                </div>
+                <div class="form-group">
+                  <label for="fullOrder">Número da Ordem</label>
+                  <input type="text" id="fullOrder" class="form-control" placeholder="ORD-123456">
+                </div>
+              </div>
+              <small class="form-hint"><i class="fas fa-sync-alt"></i> Executa fluxo completo: GOI → WFM → D0</small>
+              <div class="task-footer">
+                <span class="task-status idle" id="status-FULL"><i class="fas fa-circle"></i> Pronto</span>
+                <div class="task-actions">
+                  <button class="btn btn-sm btn-outline" onclick="App.clearTask('FULL')" aria-label="Limpar campos"><i class="fas fa-eraser"></i></button>
+                  <button class="btn btn-sm btn-outline" onclick="App.exportSingle('FULL')" title="Exportar resultado"><i class="fas fa-download"></i></button>
+                </div>
+              </div>
+            </div>
+          </article>
+
+        </section>
+
+        <!-- 📝 Logs & Diagnóstico -->
+        <section class="card" id="logsCard">
+          <div class="card-header">
+            <h3><i class="fas fa-terminal"></i> Logs da Execução</h3>
+            <div class="card-actions">
+              <select id="logFilter" class="form-select form-select-sm" aria-label="Filtrar logs por processo">
+                <option value="all">Todos</option>
+                <option value="GOI_CHECK">GOI</option>
+                <option value="WFM_CPF">WFM</option>
+                <option value="GPS_OPEN">GPS</option>
+                <option value="FULL">FULL</option>
+                <option value="system">Sistema</option>
+              </select>
+              <button class="btn btn-sm btn-outline" onclick="App.clearLogs()" aria-label="Limpar todos os logs"><i class="fas fa-trash-alt"></i> Limpar</button>
+              <button class="btn btn-sm btn-outline" onclick="App.exportLogs()" title="Exportar logs"><i class="fas fa-file-export"></i></button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="logs" class="logs" role="log" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <section class="card" id="diagnosticCard">
+          <div class="card-header alert-info">
+            <h3><i class="fas fa-stethoscope"></i> Diagnóstico Rápido</h3>
+          </div>
+          <div class="card-body">
+            <button class="btn btn-warning" onclick="App.runDiagnostics()">
+              <i class="fas fa-sync-alt"></i> Executar Verificação
+            </button>
+            <div id="diagnosticResult" class="mt-2" style="font-size: 0.9rem;"></div>
+          </div>
+        </section>
+
+        <!-- ℹ️ Atalhos & Info -->
+        <section class="card info-card">
+          <div class="card-body">
+            <p class="text-danger"><i class="fas fa-exclamation-triangle"></i> <strong>Atenção:</strong> Utilize apenas em ambiente autorizado. Endereço seguro: <code>https://goi.vivo.com.br</code></p>
+            <div class="shortcuts-grid">
+              <div><kbd>Ctrl+1</kbd> Foco GOI</div>
+              <div><kbd>Ctrl+2</kbd> Foco WFM</div>
+              <div><kbd>Ctrl+3</kbd> Foco GPS</div>
+              <div><kbd>Ctrl+Enter</kbd> Executar task ativa</div>
+              <div><kbd>Esc</kbd> Parar/Cancelar</div>
+              <div><kbd>D</kbd> Diagnóstico</div>
+            </div>
+          </div>
+        </section>
+
+      </main>
     </div>
   </div>
 
-  <!-- 📊 Card: Logs Consolidados -->
-  <div class="card">
-    <div class="card-header">
-      <h3><i class="fas fa-terminal"></i> Logs da Execução</h3>
-      <div class="card-actions">
-        <select id="logFilter" class="form-select form-select-sm" onchange="filterLogs()">
-          <option value="all">Todos os processos</option>
-          <option value="GOI_CHECK">GOI</option>
-          <option value="WFM_CPF">WFM</option>
-          <option value="GPS_OPEN">GPS</option>
-          <option value="FULL">FULL</option>
-        </select>
-        <button class="btn btn-outline-success btn-sm" onclick="clearLogs()">
-          <i class="fas fa-trash-alt"></i> Limpar
-        </button>
-      </div>
+  <!-- 🐛 Painel Debug (oculto por padrão) -->
+  <div id="debugPanel" class="debug-panel hidden" aria-hidden="true">
+    <div class="debug-header">
+      <span><i class="fas fa-bug"></i> Console de Debug</span>
+      <button class="btn btn-sm btn-outline" onclick="document.getElementById('debugPanel').classList.add('hidden')" aria-label="Fechar debug"><i class="fas fa-times"></i></button>
     </div>
-    <div class="card-body">
-      <div id="logs" class="logs" role="log" aria-live="polite"></div>
-    </div>
+    <pre id="debugConsole" class="debug-content"></pre>
   </div>
 
-  <!-- 🔍 Card: Diagnóstico Rápido -->
-  <div class="card">
-    <div class="card-header alert-info">
-      <h3><i class="fas fa-stethoscope"></i> Diagnóstico do Sistema</h3>
-    </div>
-    <div class="card-body">
-      <p class="text-info mb-2">
-        <i class="fas fa-info-circle"></i> Verifique conectividade e permissões antes de executar automações em produção.
-      </p>
-      <button class="btn btn-warning" onclick="runDiagnostics()">
-        <i class="fas fa-sync-alt"></i> Executar Verificação
-      </button>
-      <div id="diagnosticResult" class="mt-2" style="font-size: 0.9rem;"></div>
-    </div>
-  </div>
-
-  <!-- ℹ️ Card: Informações -->
-  <div class="card">
-    <div class="card-body">
-      <p class="text-danger">
-        <i class="fas fa-exclamation-triangle"></i> 
-        <strong>Atenção:</strong> Utilize apenas em ambiente autorizado. Endereço seguro do GOI: 
-        <code>https://goi.vivo.com.br</code> ou via VPN corporativa.
-      </p>
-      <p style="font-size: 0.85rem; color: var(--vivo-gray); margin-top: 8px;">
-        <i class="fas fa-keyboard"></i> <strong>Atalhos:</strong> 
-        <kbd>Ctrl+1</kbd> = Foco GOI | 
-        <kbd>Ctrl+2</kbd> = Foco WFM | 
-        <kbd>Ctrl+3</kbd> = Foco GPS | 
-        <kbd>Ctrl+Enter</kbd> = Executar task ativa
-      </p>
-    </div>
-  </div>
-
-</main>
+  <script src="src/js/app.js" type="module"></script>
+</body>
+</html>
